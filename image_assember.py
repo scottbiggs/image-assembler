@@ -8,34 +8,21 @@
 #	I'm hoping to use this as a program to reassemble these images into
 #	a useful format.
 #
-#	This involves:
-#		1.	Analyzing the images.  I'll create a database of the edges of
-#			all the images.
+#   There are a few one good things: the images are in order, the images all fit
+#   from top to bottom, and matching images are the same width.
 #
-#		2.	Finding fits.  Going through all the edges and finding all the
-#			pieces that fit.
+#   I've found that my technique works about 90% of the time.  But it fails
+#   sometimes with text.  I've tried two alternate systems to make it recognize
+#   text (offsets and blocks), but they don't seem to work very well.
 #
-#		3.	Reassembly.  Going through the fits and creating bigger images.
-#
-#		4.	Start again, this time discarding the pieces that have been
-#			combined, but adding the new images.
-#
-#		5.	Repeat until no more matches.
-#
-#
-#	The Database
-#
-#		SQLite using the sqlite3 module (because it's built in!)
-#
-#		todo: test using this database
+#   What I did is make a second program, joiner.py.  It allows you to manually
+#   join images that *should* have been joined automatically, but were mis-
+#   interpreted to be different images.
 #
 
 import sys      # for command line arguments
 import os       # allows file access
 
-import sqlite3  # todo
-
-# from image_comparator import compare_edges_with_type, is_difference_within_tolerance
 from image_comparator import *
 
 
@@ -43,11 +30,29 @@ from image_comparator import *
 ##############################
 #   constants
 #
-usage = 'todo scott, make a usage statement'
+usage = """
+
+    merge_images  -- a program to try to fix munged images from bad PDF files.
+
+USAGE:
+    merge_images [path]
+
+Defaulting the current directory, this will go through all the image files and
+try to match 'em up and join them back together.
+
+The output files will be named 'assembled_###'.jpg and will be placed in the
+same directory.  
+
+NOTE:  Anything file the same name will be overwritten!!!
+
+"""
 
 
 # Prefix for all the assembled files.  They'll have a number attached too.
 FILE_PREFIX = 'assembled_'
+
+# to turn on verbose messages
+DEBUG = False
 
 
 ##############################
@@ -55,6 +60,13 @@ FILE_PREFIX = 'assembled_'
 #
 output_file_count = 0
 
+# number of new joined files that have been created
+num_joined_files = 0
+
+# List of all the files that for whatever reason were never joined
+# with any other file.  These could be indicators of a match that
+# didn't work but should have.
+unjoined_file_list = list()
 
 ##############################
 #   script begin
@@ -66,17 +78,20 @@ print('start')
 ########
 #   parse command line arguments
 #
-print(f'number of args is {len(sys.argv)}')
+if DEBUG:
+    print(f'number of args is {len(sys.argv)}')
 
 if len(sys.argv) == 2:
     path = sys.argv[1]
     os.chdir(path)
-    print(f'changing directories to {path}')
+    if DEBUG:
+        print(f'changing directories to {path}')
 
 if len(sys.argv) > 2:
     exit(usage)
 
-print('path defaulting to current directory')
+if DEBUG:
+    print('path defaulting to current directory')
           
 ########
 # A list of all the files in the current directory
@@ -221,12 +236,14 @@ while i < len(file_list):
     if match_list_len > 1:
         print('   ...list detected, attempting to join files')
         join_files(match_list)
+        num_joined_files += 1
 
         # skip ahead
         i += 1      # todo: this is redundant with below
 
     else:
         print('   ...list not big enough, going back to outer loop')
+        unjoined_file_list.append(match_list[0])
         i += 1
                
         
@@ -260,5 +277,13 @@ finally:
         print ('sqlite connection closed.')
 """
 
+##########
+#   wrapping up
+#
+print(f'Success!  Joined {num_joined_files} files.')
+if len(unjoined_file_list) > 0:
+    print('Here are the images that were never joined:')
+    for name in unjoined_file_list:
+        print(f'   {name}')
 
-print ("\ndone.")
+print ("done.")

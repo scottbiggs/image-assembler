@@ -9,7 +9,16 @@ from PIL import Image
 #   constants
 #
 
-usage = 'joiner <top_file_name> <bottom_file_name> <output_file_name>\n'
+usage = """
+Joiner - a program to stitch together two images.
+
+Usage:
+    joiner <top_file_name> <bottom_file_name> <output_file_name>
+
+The first file will be on top, and the second file will be put below.
+The top and bottom file MUST be the same width!
+
+"""
 
 
 ############################
