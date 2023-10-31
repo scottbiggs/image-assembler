@@ -531,6 +531,7 @@ def compare_pixel_groups(file1, file2, group_size, comp_type):
 # TESTING!!
 #######################################
 
+"""
 no_connect_regular = compare_edges_using_blocks('Image-257.jpg', 'Image-258.jpg', HUE_MASK)
 no_connect_size_2 = compare_edges_using_blocks('Image-257.jpg', 'Image-258.jpg', 2)
 no_connect_size_3 = compare_edges_using_blocks('Image-257.jpg', 'Image-258.jpg', 3)
@@ -551,7 +552,7 @@ print(f'regular:  no connect = {no_connect_regular}, good = {good_regular}, bad 
 print(f'block size 2:  no connect = {no_connect_size_2}, good = {good_block_size_2}, bad = {bad_block_size_2}')
 print(f'block size 3:  no connect = {no_connect_size_3}, good = {good_block_size_3}, bad = {bad_block_size_3}')
 print(f'block size 4:  no connect = {no_connect_size_4}, good = {good_block_size_4}, bad = {bad_block_size_4}')
-
+"""
 
 # compare_edges_using_blocks('small1.png', 'small2.png', 2)
 

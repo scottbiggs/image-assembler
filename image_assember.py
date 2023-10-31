@@ -104,17 +104,8 @@ for f in temp_file_list:
     if os.path.isfile(f):
         file_list.append(f)
     
-
-# sort the list
+# sort the list (I assume that the images are in alphabetical order)
 file_list.sort()
-
-# open the files and do something with 'em
-print("here are the files one by one...")
-for filename in file_list:
-    print("\t" + filename)
-##    f = open(filename, "rt")
-##    print(f.read() + "\n")      # just print the contents, yawn
-##    f.close()
 
 
 #########
@@ -176,57 +167,69 @@ def join_files(file_list):
 i = 0
 while i < len(file_list): 
     curr_top_file = file_list[i]
-    print(f'\ntop file is {file_list[i]}, i = {i}')
+    if DEBUG:
+        print(f'\ntop file is {file_list[i]}, i = {i}')
 
     match_list = [file_list[i]]     # start with the top file
 
     offset = 0
     j = i + 1
     while j < len(file_list):
-        print(f'   starting inner loop. j = {j}, top = {file_list[i]}, bottom = {file_list[j]}')
+        if DEBUG:
+            print(f'   starting inner loop. j = {j}, top = {file_list[i]}, bottom = {file_list[j]}')
+
         # dist = compare_bottom_to_top(file_list[i], file_list[j], False)
         dist = compare_edges_with_type(file_list[i], file_list[j], HUE_MASK, offset)
-        print(f'      dist = {dist}')
+        if DEBUG:
+            print(f'      dist = {dist}')
 
         if dist == None:
             # exit this inner loop; we probably encountered a non-image file or images that don't match
-            print(f'      Not image file or diff sizes. bottom file is {file_list[j]}, j = {j}.  Breaking..')
+            if DEBUG:
+                print(f'      Not image file or diff sizes. bottom file is {file_list[j]}, j = {j}.  Breaking..')
             break
         
         if is_difference_within_tolerance(dist):
-           # This is a match!!!  Add it to our list.
-           print(f'      Match! adding bottom file ({file_list[j]}) to list, j = {j}')
-           match_list.append(file_list[j])
-           i = j    # this increments the top image to be the current bottom image
-           j += 1
-           offset = 0
+            # This is a match!!!  Add it to our list.
+            if DEBUG:
+                print(f'      Match! adding bottom file ({file_list[j]}) to list, j = {j}')
+
+            match_list.append(file_list[j])
+            i = j    # this increments the top image to be the current bottom image
+            j += 1
+            offset = 0
 
         else:
             # Didn't match.  Try again with an offset.  Of course we may be in the middle of
             # trying again, so figure out where we are and act accordingly.
             match offset:
                 case 0:
-                    print(f'      No match. bottom file is {file_list[j]}, j = {j}.  trying with offset +1')
+                    if DEBUG:
+                        print(f'      No match. bottom file is {file_list[j]}, j = {j}.  trying with offset +1')
                     offset = 1
                     continue
 
                 case 1:
-                    print(f'      No match again.  Trying with offset -1')
+                    if DEBUG:
+                        print(f'      No match again.  Trying with offset -1')
                     offset = -1
                     continue
 
                 case -1:
-                    print(f'      No match again.  Trying with offset +2')
+                    if DEBUG:
+                        print(f'      No match again.  Trying with offset +2')
                     offset = 2
                     continue
 
                 case 2:
-                    print(f'      No match again.  Trying with offset -2')
+                    if DEBUG:
+                        print(f'      No match again.  Trying with offset -2')
                     offset = -2
                     continue
 
                 case _:
-                    print(f'      No match after 5 tries!  Breaking..')
+                    if DEBUG:
+                        print(f'      No match after 5 tries!  Breaking..')
                     break   # no match, exit this inner loop
 
     #
@@ -234,7 +237,8 @@ while i < len(file_list):
     #
     match_list_len = len(match_list)
     if match_list_len > 1:
-        print('   ...list detected, attempting to join files')
+        if DEBUG:
+            print('   ...list detected, attempting to join files')
         join_files(match_list)
         num_joined_files += 1
 
@@ -242,47 +246,19 @@ while i < len(file_list):
         i += 1      # todo: this is redundant with below
 
     else:
-        print('   ...list not big enough, going back to outer loop')
+        if DEBUG:
+            print('   ...list not big enough, going back to outer loop')
         unjoined_file_list.append(match_list[0])
         i += 1
                
         
-
-
-# print(compare_bottom_to_top('Blue Climax No.54/Image-006.jpg', 'Blue Climax No.54/Image-001.jpg', False))
-
-
-
-#######
-# database setup  (TODO - maybe later)
-#
-"""
-try:
-    sqliteConnection = sqlite3.connect('mydb.db')
-    cursor = sqliteConnection.cursor()
-
-    # now try a query
-    query = 'select sqlite_version();'
-    cursor.execute(query)
-    result = cursor.fetchall()
-    print('SQLite Version is {}'.format(result))
-    cursor.close()
-
-except sqlite3.Error as error:
-    print('error occurred: ', error)
-
-finally:
-    if sqliteConnection:
-        sqliteConnection.close()
-        print ('sqlite connection closed.')
-"""
 
 ##########
 #   wrapping up
 #
 print(f'Success!  Joined {num_joined_files} files.')
 if len(unjoined_file_list) > 0:
-    print('Here are the images that were never joined:')
+    print('Here are the files that were never joined:')
     for name in unjoined_file_list:
         print(f'   {name}')
 
