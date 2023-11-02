@@ -16,7 +16,7 @@ Usage:
     joiner <top_file_name> <bottom_file_name> <output_file_name> [-f]
 
 The first file will be on top, and the second file will be put below.
-The top and bottom file MUST be the same width!
+The top and bottom file should be the same width (except for below).
 
 -f      Force the files to join, even if their widths don't match.
         The final widith will be the same as the widest file, and the
