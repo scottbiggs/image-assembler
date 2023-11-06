@@ -9,7 +9,7 @@
 #   Not really sure what to do on an error.  Hmmm.
 #
 
-
+import re
 import sys      # for command line arguments
 import os       # allows file access
 
@@ -20,15 +20,19 @@ from image_comparator import *
 ##############################
 #   constants
 #
-usage = """
+USAGE = """
 
     merge_images2  -- a second program to try to fix munged images from bad PDF files.
 
 USAGE:
-    merge_images2 num
+    merge_images2 num [-o]
 
 Where 'num' is an integer that tells how many pieces each original image has been
 broken into.
+
+-o      This option tells the program to name the files using the numbering
+        system of the first file of each group instead of a sequential numbering.
+        Yep, that's an Oh (the letter between n and p).
 
 This will work ONLY in the current directory.  Maybe later I'll deal with
 directories, but that seems unnecessary now.  But at least I'm smart enough
@@ -48,6 +52,8 @@ FILE_PREFIX = 'assembled_'
 # to turn on verbose messages
 DEBUG = False
 
+ORIGINAL_ORDERING = '-o'
+
 
 ##############################
 #   globals
@@ -59,6 +65,33 @@ num_joined_files = 0
 
 # the number of pieces each original image has been broken into
 num_pieces = 0
+
+# When True, use order numbers in the assembled name from the last
+# digits of the first item in the group.
+original_ordering = False
+
+
+#########
+#   Grabs the numerical suffix (not extension) of a filename.
+#   If there is no numerical suffix, then an empty string is
+#   returned.
+#
+#   input
+#       filename        Filename with or without extension.  It may or
+#                       may not end with digits.
+#
+def get_numerical_suffix(filename):
+    if DEBUG:
+        print(f'Attempting to grab numerical suffix from {filename}')
+
+    # this regex should return any numerical stuff sitting just before a period
+    return_val = re.search(r'\d+[.]{0}', filename)
+
+    if return_val == None:
+        return ''
+
+    return return_val.group()
+
 
 
 #########
@@ -73,7 +106,13 @@ def join_files(file_list):
 
     length = len(file_list)
     print(f'      joining {length} files from {file_list[0]} to {file_list[length - 1]}')
-    print(f'         and the name will be {FILE_PREFIX}{output_file_count}.jpg')
+
+    original_ordering_count = get_numerical_suffix(file_list[0])
+
+    if original_ordering:
+        print(f'         and the name will be {FILE_PREFIX}{original_ordering_count}.jpg')
+    else:
+        print(f'         and the name will be {FILE_PREFIX}{output_file_count}.jpg')
     
     images = []
     for filename in file_list:
@@ -99,7 +138,11 @@ def join_files(file_list):
         current_y_to_paste += images[i].height
 
     # and save the result
-    new_image.save(f'{FILE_PREFIX}{output_file_count}.jpg')
+    if original_ordering:
+        new_image.save(f'{FILE_PREFIX}{original_ordering_count}.jpg')
+    else:
+        new_image.save(f'{FILE_PREFIX}{output_file_count}.jpg')
+
     output_file_count += 1
 
     # don't forget to close these images
@@ -119,10 +162,29 @@ print('start')
 #   parse command line arguments
 #
 
-if len(sys.argv) != 2:
-    exit(usage)
+arg_len = len(sys.argv)
+if (arg_len < 2) or (arg_len > 3):
+    exit(USAGE)
 
-num_pieces = int(sys.argv[1])
+if arg_len == 2:                                # just one arg
+    try:
+        num_pieces = int(sys.argv[1])
+    except:
+        exit(USAGE)
+
+elif sys.argv[1].lower() == ORIGINAL_ORDERING:  # 2 args; first is -o
+    original_ordering = True
+    num_pieces = int(sys.argv[2])
+
+elif sys.argv[2].lower() == ORIGINAL_ORDERING:  # 2 args; 2nd is -o
+    original_ordering = True
+    num_pieces = int(sys.argv[1])
+
+else:
+    exit(USAGE)
+
+if original_ordering:
+    print('Numbering files using the original file suffixes.')
 
           
 ########
@@ -200,3 +262,4 @@ while i < len(file_list):
 #
 print(f'Success!  Joined {num_joined_files} files.')
 print ("done.")
+
