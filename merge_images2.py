@@ -46,7 +46,7 @@ NOTE:  Anything file the same name will be overwritten!!!
 FILE_PREFIX = 'assembled_'
 
 # to turn on verbose messages
-DEBUG = True
+DEBUG = False
 
 
 ##############################
