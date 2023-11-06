@@ -190,6 +190,8 @@ while i < len(file_list):
 
     group_list = file_list[i : end_index]
     join_files(group_list)
+    num_joined_files += 1
+
     i += num_pieces
 
 
