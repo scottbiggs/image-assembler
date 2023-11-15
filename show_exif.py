@@ -38,7 +38,7 @@ image = None
 try:
     image = Image.open(filename)
 except:
-    exit(f'unable to open {filename}')
+    exit(f'Unable to open {filename} as an image file.')
 
 exif = image.getexif()
 print(f'exif of {filename} is {exif}')
