@@ -22,9 +22,7 @@
 
 import sys      # for command line arguments
 import os       # allows file access
-
 from image_comparator import *
-
 
 
 ##############################
@@ -68,12 +66,10 @@ num_joined_files = 0
 # didn't work but should have.
 unjoined_file_list = list()
 
+
 ##############################
 #   script begin
-#
-print('start')
-
-        
+##############################
 
 ########
 #   parse command line arguments
@@ -119,8 +115,7 @@ def join_files(file_list):
     global output_file_count
 
     length = len(file_list)
-    print(f'      joining {length} files from {file_list[0]} to {file_list[length - 1]}')
-    print(f'         and the name will be {FILE_PREFIX}{output_file_count}.jpg')
+    print(f'      joining {length} files: {file_list[0]} to {file_list[length - 1]} -> {FILE_PREFIX}{output_file_count}.jpg')
     
     images = []
     for filename in file_list:
@@ -256,10 +251,10 @@ while i < len(file_list):
 ##########
 #   wrapping up
 #
-print(f'Success!  Joined {num_joined_files} files.')
 if len(unjoined_file_list) > 0:
-    print('Here are the files that were never joined:')
+    print(f'Partial success.  Joined {num_joined_files} files.')
+    print(f'But {len(unjoined_file_list)} files were orphaned:')
     for name in unjoined_file_list:
         print(f'   {name}')
-
-print ("done.")
+else:
+    print(f'Success!  Joined {num_joined_files} files with no stragglers!')
