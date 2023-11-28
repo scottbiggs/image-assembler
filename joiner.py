@@ -25,11 +25,23 @@ The top and bottom file should be the same width (except for below).
         The final widith will be the same as the widest file, and the
         thinner file will be centered.
 
+-o      Optimize stitching location.  Joiner will try to find the best
+        place to stitch together the two images and stitch them at that
+        location.  This is really nice if there for overlapping images. If
+        no good location is found, then the edges will be joined (default).
+
 """
 
 # indicates that we should FORCE the two files to fit, even if their
 # widths are different.
-FORCE_PARAM = "-f"
+FORCE_PARAM = '-f'
+
+# indicates that the program should find the best place to stitch the
+# two files together.
+OPTIMIZE_PARAM = '-o'
+
+# indicates that all debug messages need to be displayed
+DEBUG_PARAM = '-d'
 
 # dictionary key for Orientation in exif data
 ORIENTATION_TAG_NUM = 274
@@ -47,10 +59,108 @@ force_fit = False
 
 debug = False
 
+# when True, try to find the best place to stitch the two images together.
+optimize_stitching = False
+
+# These are the names of the files to read and write
+top_filename = ""
+bottom_filename = ""
+new_filename = ""
+
 
 ############################
 #   functions
 ############################
+
+#########
+#   Parses the params and does the global settings appropriately.
+#
+#   side effects:
+#       top_filename        These are the input file names.
+#       bottom_filename
+#
+#       new_filename        The name of the new file to be created
+#
+#       force_fit           Will be set to True only if one of the params is '-f'
+#
+#       optimize_stitching  Set to true only if one of the params is '-o'
+#
+#       debug               Will be set to True only if one of the params is '-d'
+#
+def parse_params():
+    # Note that sys.argv[0] is always 'joiner.py' and its path, so that
+    # counts as the first argument.
+
+    global top_filename
+    global bottom_filename
+    global new_filename
+    global force_fit
+    global optimize_stitching
+    global debug
+
+    # take care of the easy cases first
+    if len(sys.argv) < 4 or len(sys.argv) > 7:
+        exit(USAGE)
+
+    # no extra params--easy!
+    if len(sys.argv) == 4:
+        top_filename = sys.argv[1]
+        bottom_filename = sys.argv[2]
+        new_filename = sys.argv[3]
+        return
+
+    # loop through all the params
+    counter = 1
+    while counter < len(sys.argv):
+        this_param = sys.argv[counter]
+
+        if debug:
+            print(f'counter = {counter}.  this_param = {this_param} (lowercase = {this_param.lower()})')
+
+        if this_param.lower() == FORCE_PARAM:
+            force_fit = True
+            if debug:
+                print('   force_fit is set to True')
+
+        elif this_param.lower() == OPTIMIZE_PARAM:
+            optimize_stitching = True
+            if debug:
+                print('   optimize_stitching is set to True')
+
+        elif this_param.lower() == DEBUG_PARAM:
+            debug = True
+            if debug:
+                print('   debug is set to True')
+
+        # From here on out, this much be either an input or output filename.
+        # Since they go in order, it's pretty easy to figure out which one.
+        elif not top_filename:
+            top_filename = this_param
+            if debug:
+                print(f'   top_filename set to {top_filename}')
+
+        elif not bottom_filename:
+            bottom_filename = this_param
+            if debug:
+                print(f'   bottom_filename = {bottom_filename}')
+
+        elif not new_filename:
+            new_filename = this_param
+            if debug:
+                print(f'   new_filename = {new_filename}')
+
+        else:
+            # Something fishy went on here
+            if debug:
+                print(f'   something fishy!  counter = {counter}')
+            exit(USAGE)
+
+        counter += 1
+
+    #last check for completeness
+    if not top_filename or not bottom_filename or not new_filename:
+        exit(USAGE)
+
 
 #########
 #   Determines if the given Image has an Orientation exif attribute.
@@ -152,6 +262,26 @@ def correct_orientation(infile, outfile, debug = False):
     image1.close()
 
     return True
+
+
+#########
+#   Tries to find the best place to stitch together the images.
+#   This will only try the bottom third and the top third of each
+#   image before giving up.
+#
+#   input
+#       top_image, bottom_image     These are graphic images that are already
+#                                   opened and verified.
+#
+#   returns
+#       A list of two numbers [a, b].  The first number is the number of 
+#       lines from the bottom of the first image that best matches.  
+#       The second number is the number of lines from the top image that 
+#       best matches.  If no good match was found, then [0, 0] is returned.
+#       
+def find_optimal_join_location(top_image, bottom_image):
+    if debug:
+        print('find_optimal_join_location()')
 
 
 #########
@@ -268,46 +398,12 @@ def join_files(top_file, bottom_file, out_file, force = False):
 #   begin
 #########################################################
 
-# Note that sys.argv[0] is always 'joiner.py' and its path, so that
-# counts as the first argument.  Thus there should be 4 or 5 params.
-# If there are 5 params, one must be '-f'.
+parse_params()
 
-# take care of the easy cases first
-if len(sys.argv) < 4 or len(sys.argv) > 5:
-    exit(USAGE)
+print(f'joining {top_filename} to {bottom_filename} => {new_filename}')
+# result = join_files(top_filename, bottom_filename, new_filename, force_fit)
 
-if len(sys.argv) == 4:
-    top = sys.argv[1]
-    bottom = sys.argv[2]
-    new = sys.argv[3]
+# if result:
+#     print(f'successfully joined {top_filename} to {bottom_filename} => {new_filename}')
 
-# the only case left is a length of 5.  One of the params MUST be '-f'.
-if len(sys.argv) == 5:
-    force_fit = True
-    if sys.argv[1].lower() == FORCE_PARAM:      # -f is first param (position 1)
-        top = sys.argv[2]
-        bottom = sys.argv[3]
-        new = sys.argv[4]
-    elif sys.argv[2].lower() == FORCE_PARAM:    # -f second param
-        top = sys.argv[1]
-        bottom = sys.argv[3]
-        new = sys.argv[4]
-    elif sys.argv[3].lower() == FORCE_PARAM:    # -f 3rd param
-        top = sys.argv[1]
-        bottom = sys.argv[2]
-        new = sys.argv[4]
-    elif sys.argv[4].lower() == FORCE_PARAM:    # -f is last param
-        top = sys.argv[1]
-        bottom = sys.argv[2]
-        new = sys.argv[3]
-    else:
-        # couldn't find the '-f' param! aborting!
-        exit(USAGE)
-
-
-print(f'joining {top} to {bottom} => {new}')
-result = join_files(top, bottom, new, force_fit)
-
-if result:
-    print(f'successfully joined {sys.argv[1]} to {sys.argv[2]} => {sys.argv[3]}')
-
+print(f'   and debug = {debug}, optimize_stitching = {optimize_stitching}, force_fit = {force_fit}')
