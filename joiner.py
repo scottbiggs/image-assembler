@@ -17,7 +17,7 @@ USAGE = """
 Joiner - a program to stitch together two images.
 
 Usage:
-    joiner <top_file_name> <bottom_file_name> <output_file_name> [-f]
+    joiner <top_file_name> <bottom_file_name> <output_file_name> [-f] [-o]
 
 The first file will be on top, and the second file will be put below.
 The top and bottom file should be the same width (except for below).
@@ -30,6 +30,8 @@ The top and bottom file should be the same width (except for below).
         place to stitch together the two images and stitch them at that
         location.  This is really nice if there for overlapping images. If
         no good location is found, then the edges will be joined (default).
+
+-d      Print debug info.
 
 """
 
@@ -60,6 +62,12 @@ ORIENTATION_TAG_NUM = 274
 # names for temp files which will be deleted in the process
 TMP_FILE1 = 'jjjseeefffiisllbbblesjeo2982850039283jfoiesjeeqznwosi37.jpg'
 TMP_FILE2 = 'sjfowwekkkeeeskskslavllelsjpelliseeingwjw228fh29837fh2fhslkskf.jpg'
+
+# If the average difference between two lines is less than this, then it's
+# probably the same line and should be skipped when joining the two files.
+# NOTE: this is the threshold PER PIXEL, not an entire line.
+SAME_PIXEL_THRESHOLD = 0.04
+
 
 ############################
 #   globals
@@ -407,6 +415,9 @@ def find_difference_between_two_rows(image_map1, row1, row1_width,
 #       top_image, bottom_image     These are graphic images that are already
 #                                   opened and verified.
 #
+#       force           When True, force the files to fit, even if the
+#                       widths are different.
+#
 #       NO...see below!!!
 #   returns
 #       A list of two numbers [a, b].  The first number is the number of 
@@ -419,9 +430,7 @@ def find_difference_between_two_rows(image_map1, row1, row1_width,
 #       bottom row of the top file.  0 is the default (if no threshold
 #       is met).
 #       
-def find_optimal_join_location(top_image, bottom_image):
-    if debug:
-        print('find_optimal_join_location()')
+def find_optimal_join_location(top_image, bottom_image, force):
 
     # the maps are needed for find_difference_between_two_rows()
     top_image_map = top_image.load()
@@ -450,34 +459,12 @@ def find_optimal_join_location(top_image, bottom_image):
     current_best_match = sys.maxsize
 
 
-    # i = 0
-    # j = 0
-    # # No way around it, this uses a brute-force O(n^2) loops.  Sigh
-    # for i in range(top_image.height - 1, top_image.height - top_image_num_lines_to_inspect, -1):
-    #     print(f'i = {i}')
-    #     for j in range(0, bottom_image_num_lines_to_inspect):
-    #         if j % 10 == 0:
-    #             print(f'  j = {j}')
-    #         difference = find_difference_between_two_rows(top_image_map, i, top_image.width,
-    #                                                       bottom_image_map, j, bottom_image.width)
-    #         if (i == 300) and (j == 25):
-    #             print(f'i = 300, j = 25  -> difference = {difference}')
-    #         if difference < current_best_match:
-    #             top_file_best_line = i
-    #             bottom_file_best_line = j
-    #             current_best_match = difference
-    #             if debug:
-    #                 print(f'   (i = {i}, j = {j}): found better match ({current_best_match}): [{top_file_best_line}, {bottom_file_best_line}]')
-
-    # print(f'done with double loop: i = {i}, j = {j}')
-
-
     # See what the bottom of the top image matches within the top third
     # of the bottom image.
     for i in range(0, round(bottom_image.height / 3)):
         diff = find_difference_between_two_rows(top_image_map, top_image.height - 1, top_image.width,
                                                 bottom_image_map, i, bottom_image.width,
-                                                force_fit)
+                                                force)
         if debug:
             print(f'find_optimal(), i = {i}, diff = {diff}')
         if diff < current_best_match:
@@ -491,9 +478,33 @@ def find_optimal_join_location(top_image, bottom_image):
 
     # return [top_file_best_line, bottom_file_best_line]
 
+    # if this line is exactly the same, skip it.
+    if current_best_match < (SAME_PIXEL_THRESHOLD * max(top_image.width, bottom_image.width)):
+        bottom_file_best_line += 1
+
     if debug:
         print(f'Best match for bottom of the top file is: bottom file line: {bottom_file_best_line}')
     return bottom_file_best_line
+
+
+#########
+#   Crops from the center of the given image.  If the crop dimensions are
+#   bigger than the given image, the new image will have black borders.
+#
+#   input
+#       pil_img                     The image to crop
+#
+#       crop_width, crop_height     The new width and height of the image
+#
+#   returns
+#       A new cropped image of pil_img.
+#
+def crop_center(pil_img, crop_width, crop_height):
+    img_width, img_height = pil_img.size
+    return pil_img.crop(((img_width - crop_width) // 2,
+                         (img_height - crop_height) // 2,
+                         (img_width + crop_width) // 2,
+                         (img_height + crop_height) // 2))
 
 
 #########
@@ -576,19 +587,42 @@ def join_files(top_file, bottom_file, out_file, force = False):
             new_width = bottom_image.width
             top_width_adjustment = int((bottom_image.width - top_image.width) / 2)
 
+        if debug:
+            print(f'top_width_adjustment = {top_width_adjustment}')
+            print(f'bottom_width_adjustment = {bottom_width_adjustment}')
+
+
+    stich_row = 0
+    out_image_height = top_image.height + bottom_image.height
+
+    # do we need to optimize the joining location?
+    if optimize_stitching:
+        stich_row = find_optimal_join_location(top_image, bottom_image, force)
+
+        # skip this optimal row--it's probably a repeat.  TODO: test this hypothesis extensively!
+        out_image_height -= stich_row
+
     # new image combines heights
-    out_image = Image.new('RGB', (new_width, top_image.height + bottom_image.height))
+    out_image = Image.new('RGB', (new_width, out_image_height))
+
+
+    # Figure out what part of the bottom to paste in.  This is the whole
+    # of the bottom image if there is no optimized stitching.  If the stitching
+    # is optimized, then it's the stitch_row to the end of the bottom image.
+    used_bottom_part = bottom_image.crop((0,
+                                          stich_row,
+                                          bottom_image.width,
+                                          bottom_image.height - 1
+                                         ))
+    if debug:
+        print(f'cropping bottom image: ({bottom_width_adjustment}, {stich_row}, {bottom_image.width}, {bottom_image.height - 1})')
 
     # paste the pieces (centering, which will do nothing if the width already matches
     # the image width)
 
     out_image.paste(top_image, (top_width_adjustment, 0))
-    out_image.paste(bottom_image, (bottom_width_adjustment, top_image.height))
-    
-    # out_image.paste(top_image, (top_width_adjustment, 0, 
-    #                             top_image.width, top_image.height))
-    # out_image.paste(bottom_image, (bottom_width_adjustment, top_image.height, 
-    #                                bottom_image.width, top_image.height + bottom_image.height))
+    out_image.paste(used_bottom_part, (bottom_width_adjustment, top_image.height))
+
 
     # and save result
     out_image.save(out_file)
@@ -613,34 +647,34 @@ def join_files(top_file, bottom_file, out_file, force = False):
 parse_params()
 
 print(f'joining:\n   {top_filename} + {bottom_filename} => {new_filename}')
-# result = join_files(top_filename, bottom_filename, new_filename, force_fit)
+result = join_files(top_filename, bottom_filename, new_filename, force_fit)
 
-# if result:
-#     print(f'successfully joined {top_filename} to {bottom_filename} => {new_filename}')
+if result:
+    print(f'successfully joined {top_filename} to {bottom_filename} => {new_filename}')
 
 ###################
 # testing
 
-top_image = None
-bottom_image = None
+# top_image = None
+# bottom_image = None
 
-try:
-    top_image = Image.open(top_filename)
-    print(f'opened {top_filename}')
+# try:
+#     top_image = Image.open(top_filename)
+#     print(f'opened {top_filename}')
 
-    bottom_image = Image.open(bottom_filename)
-    print(f'opened {bottom_filename}')
+#     bottom_image = Image.open(bottom_filename)
+#     print(f'opened {bottom_filename}')
 
-except:
-    exit('unable to open a file!')
+# except:
+#     exit('unable to open a file!')
 
-optimal_loc = find_optimal_join_location(top_image, bottom_image)
-print(f'optimal location is {optimal_loc}')
+# optimal_loc = find_optimal_join_location(top_image, bottom_image)
+# print(f'optimal location is {optimal_loc}')
 
-# clean up
-if top_image != None:
-    top_image.close()
-if bottom_image != None:
-    bottom_image.close()
+# # clean up
+# if top_image != None:
+#     top_image.close()
+# if bottom_image != None:
+#     bottom_image.close()
 
-print('done')
+# print('done')
