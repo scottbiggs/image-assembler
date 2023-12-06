@@ -3,7 +3,6 @@
 
 import os
 import math
-from time import sleep
 import sys      # for command line arguments
 from PIL import Image
 from PIL import ImageOps
