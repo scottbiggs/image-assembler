@@ -349,6 +349,7 @@ def is_similar(pix1, pix2, threshold = DEFAULT_SIMILAR_PIXEL_THRESHOLD):
     return get_similarity(pix1, pix2) < threshold
 
 
+#########
 #   Returns the difference between the given rows of two images.
 #   Just a simple Hue comparison.
 #
