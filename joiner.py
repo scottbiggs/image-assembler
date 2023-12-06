@@ -17,7 +17,7 @@ USAGE = """
 Joiner - a program to stitch together two images.
 
 Usage:
-    joiner <top_file_name> <bottom_file_name> <output_file_name> [-f] [-o]
+    joiner <top_file_name> <bottom_file_name> <output_file_name> [-f] [-s]|[-S <num>]
 
 The first file will be on top, and the second file will be put below.
 The top and bottom file should be the same width (except for below).
@@ -26,10 +26,14 @@ The top and bottom file should be the same width (except for below).
         The final widith will be the same as the widest file, and the
         thinner file will be centered.
 
--o      Optimize stitching location.  Joiner will try to find the best
+-s      Optimize stitching location.  Joiner will try to find the best
         place to stitch together the two images and stitch them at that
         location.  This is really nice if there for overlapping images. If
         no good location is found, then the edges will be joined (default).
+
+-S      Optimize stiching location, but check this percentage amount.
+        15 will check the first fifteen percent, 25 will check a fourth,
+        and so on.  The default is 33 (or a third).
 
 -d      Print debug info.
 
@@ -41,12 +45,16 @@ FORCE_PARAM = '-f'
 
 # indicates that the program should find the best place to stitch the
 # two files together.
-OPTIMIZE_PARAM = '-o'
+OPTIMIZE_PARAM = '-s'
+
+# Check for the best place, but also tell how much of the file to
+# test.  This is a number that means percent, so 25 will check 25%.
+OPTIMIZE_PARAM_WITH_PERCENT = '-S'
 
 # The percentage of the entire portion of the images that is checked
 # if we're trying to find an optimal place to stitch together.
 # 33 means that we'll only check 33% of the images.
-OPTIMIZE_AREA = 33
+DEFAULT_OPTIMIZE_AREA = 33
 
 # The distance between two pixel colors beyond which we'll call them
 # 'different'.  This is used when checking if two pixels are similar.
@@ -81,6 +89,9 @@ debug = False
 # when True, try to find the best place to stitch the two images together.
 optimize_stitching = False
 
+# The percent of the bottom file to check for optimal stitching location.
+optimize_area = DEFAULT_OPTIMIZE_AREA
+
 # These are the names of the files to read and write
 top_filename = ""
 bottom_filename = ""
@@ -108,6 +119,8 @@ new_filename = ""
 #
 #       debug               Will be set to True only if one of the params is '-d'
 #
+#       optimize_area       Will be set if the params specify.
+#
 def parse_params():
     # Note that sys.argv[0] is always 'joiner.py' and its path, so that
     # counts as the first argument.
@@ -118,9 +131,11 @@ def parse_params():
     global force_fit
     global optimize_stitching
     global debug
+    global optimize_area
+
 
     # take care of the easy cases first
-    if len(sys.argv) < 4 or len(sys.argv) > 7:
+    if len(sys.argv) < 4 or len(sys.argv) > 9:
         exit(USAGE)
 
     # no extra params--easy!
@@ -143,10 +158,26 @@ def parse_params():
             if debug:
                 print('   force_fit is set to True')
 
-        elif this_param.lower() == OPTIMIZE_PARAM:
+        elif this_param == OPTIMIZE_PARAM:
             optimize_stitching = True
             if debug:
                 print('   optimize_stitching is set to True')
+
+        elif this_param == OPTIMIZE_PARAM_WITH_PERCENT:
+            optimize_stitching = True
+            counter += 1
+
+            # now get the number for the percent to check
+            this_param = sys.argv[counter]
+            try:
+                optimize_area = int(this_param)
+            except:
+                if debug:
+                    print(f'Error when trying to read the stitching amount! (what is {this_param}???)')
+                exit(USAGE)
+
+            if debug:
+                print(f'   optimize_stitching is True, percent = {optimize_area}')
 
         elif this_param.lower() == DEBUG_PARAM:
             debug = True
@@ -411,6 +442,9 @@ def find_difference_between_two_rows(image_map1, row1, row1_width,
 #   This will only try the bottom third and the top third of each
 #   image before giving up.
 #
+#   preconditions
+#       optimize_area               The part of the bottom to check.
+#
 #   input
 #       top_image, bottom_image     These are graphic images that are already
 #                                   opened and verified.
@@ -437,15 +471,11 @@ def find_optimal_join_location(top_image, bottom_image, force):
     bottom_image_map = bottom_image.load()
 
     # figure out how many lines we're inspecting in each image
-    top_image_num_lines_to_inspect = round((OPTIMIZE_AREA / 100) * top_image.height)
-    bottom_image_num_lines_to_inspect = round((OPTIMIZE_AREA / 100) * bottom_image.height)
+    top_image_num_lines_to_inspect = round((optimize_area / 100) * top_image.height)
+    bottom_image_num_lines_to_inspect = round((optimize_area / 100) * bottom_image.height)
 
-    # Make ranges for the rows of the two images to compare.  This'll simplify
-    # our life later.  Note that the top image is tricky as we start at the
-    # lowest row and work our way up.
-    top_range = range(top_image.height - 1, 
-                      top_image.height - (top_image_num_lines_to_inspect),
-                      -1)
+    # Make a range for the rows of the bottom image to compare with the bottom
+    # row of the top image.
     bottom_range = range(0, bottom_image_num_lines_to_inspect + 1)
 
 
@@ -459,9 +489,9 @@ def find_optimal_join_location(top_image, bottom_image, force):
     current_best_match = sys.maxsize
 
 
-    # See what the bottom of the top image matches within the top third
-    # of the bottom image.
-    for i in range(0, round(bottom_image.height / 3)):
+    # See what the bottom of the top image matches within the bottom image
+    # inspection area.
+    for i in bottom_range:
         diff = find_difference_between_two_rows(top_image_map, top_image.height - 1, top_image.width,
                                                 bottom_image_map, i, bottom_image.width,
                                                 force)
