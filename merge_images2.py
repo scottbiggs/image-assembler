@@ -95,6 +95,42 @@ def get_numerical_suffix(filename):
 
 
 #########
+#   Saves the given image.
+#
+#   input
+#       img             The Image file to be saved.
+#
+#       name            The name to save this as (see unique_name below).
+#
+#       unique_name     When True (default), this will make sure that
+#                       the saved file uses a unique name.
+#                       False means to overwrite any file with the
+#                       same name.
+#
+def save_image(img, name, unique_name = True):
+    if unique_name:
+        prefix, extension = os.path.splitext(name)
+        print(f'save_image(), prefix = {prefix}, extension = {extension}')
+
+        current_name = f'{prefix}{extension}'
+        unique_suffix = 0       # int
+
+        # check to see if the name is used
+        while os.path.exists(current_name):
+            unique_suffix += 1
+            current_name = f'{prefix}_{unique_suffix}{extension}'
+
+            # give up after maxint tries.
+            if unique_suffix == sys.maxsize:
+                exit('Unable to find a unique name for our file. Aborting!!!')
+
+        img.save(current_name)
+
+    else:
+       img.save(name)
+
+
+#########
 #   Joins the files in the given list.  The list must be ordered top
 #   to bottom.
 #
@@ -139,9 +175,11 @@ def join_files(file_list):
 
     # and save the result
     if original_ordering:
-        new_image.save(f'{FILE_PREFIX}{original_ordering_count}.jpg')
+        save_image(new_image, f'{FILE_PREFIX}{original_ordering_count}.jpg')
+#        new_image.save(f'{FILE_PREFIX}{original_ordering_count}.jpg')
     else:
-        new_image.save(f'{FILE_PREFIX}{output_file_count}.jpg')
+        save_image(new_image, f'{FILE_PREFIX}{output_file_count}.jpg')
+#        new_image.save(f'{FILE_PREFIX}{output_file_count}.jpg')
 
     output_file_count += 1
 
@@ -262,4 +300,5 @@ while i < len(file_list):
 #
 print(f'Success!  Joined {num_joined_files} files.')
 print ("done.")
+
 
