@@ -170,7 +170,7 @@ def parse_params():
             if debug:
                 print('   join_horizonatally is set to True')
 
-        if this_param.lower() == FORCE_PARAM:
+        elif this_param.lower() == FORCE_PARAM:
             force_fit = True
             if debug:
                 print('   force_fit is set to True')
@@ -574,7 +574,8 @@ def crop_center(pil_img, crop_width, crop_height):
 #
 def join_files_vertically(top_image, bottom_image, out_file, force = False):
 
-    print(f'join_files_vertically() force = {force}')
+    if debug:
+        print(f'joining files vertically, force = {force}')
 
     new_width = top_image.width
     top_width_adjustment = 0        # offset to center image
@@ -632,14 +633,9 @@ def join_files_vertically(top_image, bottom_image, out_file, force = False):
     out_image.paste(top_image, (top_width_adjustment, 0))
     out_image.paste(used_bottom_part, (bottom_width_adjustment, top_image.height))
 
-
-    # and save result
+    # and save result and clean up
     out_image.save(out_file)
-
-    # clean up
     out_image.close()
-    bottom_image.close()
-    top_image.close()
 
     return True
 
@@ -648,8 +644,8 @@ def join_files_vertically(top_image, bottom_image, out_file, force = False):
 #   Joins two files horizontally.
 #
 #   params
-#       top_image           Image for the left file
-#       bottom_image        Image for the right file
+#       left_image          Image for the left file
+#       right_image         Image for the right file
 #       out_file            filename for the new output file.
 #       force               force the files together, even if the heights don't match
 #
@@ -661,8 +657,60 @@ def join_files_vertically(top_image, bottom_image, out_file, force = False):
 #       True    - file created successfully
 #       False   - problem (probably the two input files are different heights)
 #
-def join_files_horizontally(top_file, bottom_file, out_file, force = False):
-    print('todo')
+def join_files_horizontally(left_image, right_image, out_file, force = False):
+
+    if debug:
+        print(f'joining files horizontally, force = {force}')
+
+    new_height = left_image.height
+    left_height_adjustment = 0          # offset to center the image
+    right_height_adjustment = 0
+
+    # check for correct height
+    if left_image.height != right_image.height:
+        if force == False:
+            print('Images do not have the same height--aborting!!')
+            return False
+
+        # It's time to Force the issue :)
+        # Make sure the new height is the max of the two.   
+        # And set the offset needed to center the less tall portion. 
+        if left_image.height > right_image.height:
+            new_height = left_image.height
+            right_height_adjustment = int((left_image.height - right_image.height) / 2)
+        else:
+            new_height = right_image.height
+            left_height_adjustment = int((right_image.height - left_image.height) / 2)
+
+        if debug:
+            print(f'left_height_adjustment = {left_height_adjustment}')
+            print(f'right_height_adjustment = {right_height_adjustment}')
+
+    stich_row = 0
+    out_image_width = left_image.width + right_image.width
+
+    # optimize joining location?
+    if optimize_stitching:
+        exit('TODO: optimize stitching for horizontal joining!!!  Sorry.')
+
+        # stich_row = find_optimal_join_location(top_image, bottom_image, force)
+
+        # # skip this optimal row--it's probably a repeat.  TODO: test this hypothesis extensively!
+        # out_image_height -= stich_row
+
+    out_image = Image.new('RGB', (out_image_width, new_height))
+
+    # paste the pieces (centering, which will do nothing if the images have
+    # the same height).
+
+    out_image.paste(left_image, (0, left_height_adjustment))
+    out_image.paste(right_image, (left_image.width, right_height_adjustment))
+
+    # and save and cleanup
+    out_image.save(out_file)
+    out_image.close()
+
+    return True
 
 
 #########
@@ -733,6 +781,9 @@ def join_files(top_file, bottom_file, out_file, force = False):
         return_val = join_files_horizontally(top_image, bottom_image, out_file, force)
     else:
         return_val = join_files_vertically(top_image, bottom_image, out_file, force)
+
+    top_image.close()
+    bottom_image.close()
 
     # remove tmp files
     if use_tmp1:
