@@ -16,7 +16,7 @@ USAGE = """
 Joiner - a program to stitch together two images.
 
 Usage:
-    joiner <top_file_name> <bottom_file_name> <output_file_name> [-f] [-s]|[-S <num>]
+    joiner <top_file_name> <bottom_file_name> <output_file_name> [-h] [-f] [-s]|[-S <num>] [-d]
 
 The first file will be on top, and the second file will be put below.
 The top and bottom file should be the same width (except for below).
@@ -24,9 +24,9 @@ The top and bottom file should be the same width (except for below).
 -h      Join horizontally instead of vertically.  The first file will
         be on the left, the second file will be on the right.
 
--f      Force the files to join, even if their widths don't match.
-        The final widith will be the same as the widest file, and the
-        thinner file will be centered.
+-f      Force the files to join, even if their widths (heights if -h is used) 
+        don't match.  The final width (height) will be the same as the 
+        widest (tallest) file, and the thinner (shorter) file will be centered.
 
 -s      Optimize stitching location.  Joiner will try to find the best
         place to stitch together the two images and stitch them at that
@@ -556,19 +556,13 @@ def crop_center(pil_img, crop_width, crop_height):
 
 
 #########
-#   Joins two files into one.  The output will have the top file immediately
-#   above the bottom file.  If the files are different widths, then this
-#   does nothing.
+#   Joins two files vertically.  This is the default.
 #
 #   params
-#       top_file            filename for the file on top
-#       bottom_file         filename for the bottom file
-#       out_file            filename for the new output file.
+#       top_image           Image for the top file
+#       bottom_image        Image for the bottom file
+#       out_file            filename for the new output file
 #       force               force the files together, even if the widths don't match
-#
-#   preconditions
-#       join_horizonatally  If this is true, initiate a horizontal joining of
-#                           the files.
 #
 #   side effects
 #       A new file will be created with the given output file name.  If it already
@@ -578,48 +572,9 @@ def crop_center(pil_img, crop_width, crop_height):
 #       True    - file created successfully
 #       False   - problem (probably the two input files are different widths)
 #
-def join_files(top_file, bottom_file, out_file, force = False):
+def join_files_vertically(top_image, bottom_image, out_file, force = False):
 
-    use_tmp1 = False
-    use_tmp2 = False
-
-    todo:  prep for horizontal joining
-
-    # First things first: check to see if these files need to have
-    # their orientation corrected.
-    if get_orientation_exif_filename(top_file) > 1:
-        correct_orientation(top_file, TMP_FILE1)
-        use_tmp1 = True
-        if debug:
-            print(f'orientation corrected for {top_file}')
-
-    if get_orientation_exif_filename(bottom_file) > 1:
-        correct_orientation(bottom_file, TMP_FILE2)
-        use_tmp2 = True
-        if debug:
-            print(f'orientation corrected for {bottom_file}')
-
-    try:
-        if use_tmp1:
-            top_image = Image.open(TMP_FILE1)
-        else:
-            top_image = Image.open(top_file)
-
-        if use_tmp2:
-            bottom_image = Image.open(TMP_FILE2)
-        else:
-            bottom_image = Image.open(bottom_file)
-
-    except:
-        print('One or more files were not image files--aborting!')
-        # try to clean up
-        if use_tmp1 and os.path.isfile(TMP_FILE1):
-            os.remove(TMP_FILE1)
-        
-        if use_tmp2 and os.path.isfile(TMP_FILE2):
-            os.remove(TMP_FILE2)
-
-        return False
+    print(f'join_files_vertically() force = {force}')
 
     new_width = top_image.width
     top_width_adjustment = 0        # offset to center image
@@ -686,12 +641,106 @@ def join_files(top_file, bottom_file, out_file, force = False):
     bottom_image.close()
     top_image.close()
 
+    return True
+
+
+#########
+#   Joins two files horizontally.
+#
+#   params
+#       top_image           Image for the left file
+#       bottom_image        Image for the right file
+#       out_file            filename for the new output file.
+#       force               force the files together, even if the heights don't match
+#
+#   side effects
+#       A new file will be created with the given output file name.  If it already
+#       exists, then it will be overwritten.
+#
+#   returns
+#       True    - file created successfully
+#       False   - problem (probably the two input files are different heights)
+#
+def join_files_horizontally(top_file, bottom_file, out_file, force = False):
+    print('todo')
+
+
+#########
+#   Joins two files into one.  The output will have the top file immediately
+#   above the bottom file.  If the files are different widths, then this
+#   does nothing.
+#
+#   params
+#       top_file            filename for the file on top
+#       bottom_file         filename for the bottom file
+#       out_file            filename for the new output file.
+#       force               force the files together, even if the widths don't match
+#
+#   preconditions
+#       join_horizonatally  If this is true, initiate a horizontal joining of
+#                           the files.
+#
+#   side effects
+#       A new file will be created with the given output file name.  If it already
+#       exists, then it will be overwritten.
+#
+#   returns
+#       True    - file created successfully
+#       False   - problem (probably the two input files are different widths)
+#
+def join_files(top_file, bottom_file, out_file, force = False):
+
+    use_tmp1 = False
+    use_tmp2 = False
+
+    # First things first: check to see if these files need to have
+    # their orientation corrected.
+    if get_orientation_exif_filename(top_file) > 1:
+        correct_orientation(top_file, TMP_FILE1)
+        use_tmp1 = True
+        if debug:
+            print(f'orientation corrected for {top_file}')
+
+    if get_orientation_exif_filename(bottom_file) > 1:
+        correct_orientation(bottom_file, TMP_FILE2)
+        use_tmp2 = True
+        if debug:
+            print(f'orientation corrected for {bottom_file}')
+
+    try:
+        if use_tmp1:
+            top_image = Image.open(TMP_FILE1)
+        else:
+            top_image = Image.open(top_file)
+
+        if use_tmp2:
+            bottom_image = Image.open(TMP_FILE2)
+        else:
+            bottom_image = Image.open(bottom_file)
+
+    except:
+        print('One or more files were not image files--aborting!')
+        # try to clean up
+        if use_tmp1 and os.path.isfile(TMP_FILE1):
+            os.remove(TMP_FILE1)    
+        if use_tmp2 and os.path.isfile(TMP_FILE2):
+            os.remove(TMP_FILE2)
+        return False
+
+    return_val = False
+
+    if join_horizonatally:
+        return_val = join_files_horizontally(top_image, bottom_image, out_file, force)
+    else:
+        return_val = join_files_vertically(top_image, bottom_image, out_file, force)
+
+    # remove tmp files
     if use_tmp1:
         os.remove(TMP_FILE1)        
     if use_tmp2:
         os.remove(TMP_FILE2)
 
-    return True
+    return return_val
 
 
 #########################################################
