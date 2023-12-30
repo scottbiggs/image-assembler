@@ -21,6 +21,9 @@ Usage:
 The first file will be on top, and the second file will be put below.
 The top and bottom file should be the same width (except for below).
 
+-h      Join horizontally instead of vertically.  The first file will
+        be on the left, the second file will be on the right.
+
 -f      Force the files to join, even if their widths don't match.
         The final widith will be the same as the widest file, and the
         thinner file will be centered.
@@ -37,6 +40,10 @@ The top and bottom file should be the same width (except for below).
 -d      Print debug info.
 
 """
+
+# command line param that indicates the files should be joined horizontally
+# instead of vertically
+JOIN_HORIZ = '-h'
 
 # indicates that we should FORCE the two files to fit, even if their
 # widths are different.
@@ -80,6 +87,9 @@ SAME_PIXEL_THRESHOLD = 0.04
 #   globals
 #
 
+# when True, use a horizontal instead of vertical joining
+join_horizonatally = False
+
 # when True, force the files to join, even if the widths don't match.
 force_fit = False
 
@@ -112,6 +122,8 @@ new_filename = ""
 #
 #       new_filename        The name of the new file to be created
 #
+#       join_horizonatally  Will be set to True iff one of the params is '-h'
+#
 #       force_fit           Will be set to True only if one of the params is '-f'
 #
 #       optimize_stitching  Set to true only if one of the params is '-o'
@@ -127,6 +139,7 @@ def parse_params():
     global top_filename
     global bottom_filename
     global new_filename
+    global join_horizonatally
     global force_fit
     global optimize_stitching
     global debug
@@ -151,6 +164,11 @@ def parse_params():
 
         if debug:
             print(f'counter = {counter}.  this_param = {this_param} (lowercase = {this_param.lower()})')
+
+        if this_param.lower() == JOIN_HORIZ:
+            join_horizonatally = True
+            if debug:
+                print('   join_horizonatally is set to True')
 
         if this_param.lower() == FORCE_PARAM:
             force_fit = True
@@ -548,6 +566,10 @@ def crop_center(pil_img, crop_width, crop_height):
 #       out_file            filename for the new output file.
 #       force               force the files together, even if the widths don't match
 #
+#   preconditions
+#       join_horizonatally  If this is true, initiate a horizontal joining of
+#                           the files.
+#
 #   side effects
 #       A new file will be created with the given output file name.  If it already
 #       exists, then it will be overwritten.
@@ -560,6 +582,8 @@ def join_files(top_file, bottom_file, out_file, force = False):
 
     use_tmp1 = False
     use_tmp2 = False
+
+    todo:  prep for horizontal joining
 
     # First things first: check to see if these files need to have
     # their orientation corrected.
