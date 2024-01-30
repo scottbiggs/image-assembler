@@ -34,16 +34,7 @@ The top and bottom file should be the same width (unless -f option is used).
         don't match.  The final width (height) will be the same as the 
         widest (tallest) file, and the thinner (shorter) file will be centered.
 
--s      Optimize stitching location.  Joiner will try to find the best
-        place to stitch together the two images and stitch them at that
-        location.  This is really nice if there for overlapping images. If
-        no good location is found, then the edges will be joined (default).
-
--S      Optimize stiching location, but check this percentage amount.
-        15 will check the first fifteen percent, 25 will check a fourth,
-        and so on.  The default is 33 (or a third).
-
--o      Use to specify the output filename.
+-o      Use to specify the output filename. Will overwrite if name already exists.
 
 -d      Print debug info.
 
@@ -57,27 +48,9 @@ JOIN_HORIZ = '-h'
 # widths are different.
 FORCE_PARAM = '-f'
 
-# indicates that the program should find the best place to stitch the
-# two files together.
-OPTIMIZE_PARAM = '-s'
-
-# Check for the best place, but also tell how much of the file to
-# test.  This is a number that means percent, so 25 will check 25%.
-OPTIMIZE_PARAM_WITH_PERCENT = '-S'
-
 # Indicates that the following param is the output name for the new file
 # (instead of using the default).
 OUTPUT_PARAM = '-o'
-
-# The percentage of the entire portion of the images that is checked
-# if we're trying to find an optimal place to stitch together.
-# 33 means that we'll only check 33% of the images.
-DEFAULT_OPTIMIZE_AREA = 33
-
-# The distance between two pixel colors beyond which we'll call them
-# 'different'.  This is used when checking if two pixels are similar.
-# The lower the number the more similar.
-DEFAULT_SIMILAR_PIXEL_THRESHOLD = 18
 
 # indicates that all debug messages need to be displayed
 DEBUG_PARAM = '-d'
@@ -106,12 +79,6 @@ force_fit = False
 
 debug = False
 
-# when True, try to find the best place to stitch the two images together.
-optimize_stitching = False
-
-# The percent of the bottom file to check for optimal stitching location.
-optimize_area = DEFAULT_OPTIMIZE_AREA
-
 # List of the names of the input files in order
 filenames = []
 
@@ -137,11 +104,7 @@ new_filename = ""
 #
 #       force_fit           Will be set to True only if one of the params is '-f'
 #
-#       optimize_stitching  Set to true only if one of the params is '-o'
-#
 #       debug               Will be set to True only if one of the params is '-d'
-#
-#       optimize_area       Will be set if the params specify.
 #
 def parse_params():
     # Note that sys.argv[0] is always 'joiner.py' and its path, so that
@@ -151,9 +114,7 @@ def parse_params():
     global new_filename
     global join_horizonatally
     global force_fit
-    global optimize_stitching
     global debug
-    global optimize_area
 
     # loop through all the params
     counter = 1
@@ -172,27 +133,6 @@ def parse_params():
             force_fit = True
             if debug:
                 print('   force_fit is set to True')
-
-        elif this_param == OPTIMIZE_PARAM:
-            optimize_stitching = True
-            if debug:
-                print('   optimize_stitching is set to True')
-
-        elif this_param == OPTIMIZE_PARAM_WITH_PERCENT:
-            optimize_stitching = True
-            counter += 1
-
-            # now get the number for the percent to check
-            this_param = sys.argv[counter]
-            try:
-                optimize_area = int(this_param)
-            except:
-                if debug:
-                    print(f'Error when trying to read the stitching amount! (what is {this_param}???)')
-                exit(USAGE)
-
-            if debug:
-                print(f'   optimize_stitching is True, percent = {optimize_area}')
 
         elif this_param.lower() == DEBUG_PARAM:
             debug = True
@@ -225,8 +165,6 @@ def parse_params():
         print(f'   new_filename = {new_filename}')
         print(f'   join horiz = {join_horizonatally}')
         print(f'   force fit = {force_fit}')
-        print(f'   optimize_stitching = {optimize_stitching}')
-        print(f'   optimize_area = {optimize_area}')
 
 
 #########
@@ -276,7 +214,7 @@ def create_output_filename():
     new_output_file = start_name_prefix + '-' + end_name_prefix + '.jpg'
     if debug:
         print(f'   new_output_file = {new_output_file}')
-    return new_output_file
+    return get_unique_name(new_output_file)     # make sure we don't overwrite some file
 
 
 #########
@@ -382,208 +320,6 @@ def correct_orientation(infile, outfile, debug = False):
 
 
 #########
-#   Finds the luminescence of a pixel (which should be RGB).
-#
-def get_luminescence(pixel):
-    return (0.299 * pixel[0] + 0.587 * pixel[1] + 0.114 * pixel[2])
-
-
-#########
-#   Finds how similar the pixels are (in luminescence).  The higher the
-#   number, the less similar.  0 means exact same luminescence.
-#
-def get_similarity(pix1, pix2):
-    return abs(get_luminescence(pix1) - get_luminescence(pix2))
-
-
-#########
-#   Finds the color distance bewteen two pixels.
-#   Uses pythagorean method.
-#
-def get_distance_between_pixels(pix1, pix2):
-    return math.sqrt(
-                     ((pix1[0] - pix2[0]) ** 2)
-                     + ((pix1[1] - pix2[1]) ** 2)
-                     + ((pix1[2] - pix2[2]) ** 2)
-                    )
-
-#########
-#   Determines if the two given pixels are similar via the supplied
-#   threshold.
-#
-def is_similar(pix1, pix2, threshold = DEFAULT_SIMILAR_PIXEL_THRESHOLD):
-    return get_similarity(pix1, pix2) < threshold
-
-
-#########
-#   Returns the difference between the given rows of two images.
-#   Just a simple Hue comparison.
-#
-#   input
-#       image_map1  Reference to the first image map.
-#       row1        The row in the first image to compare.
-#       row1_width  Width of this row in pixels.
-#
-#       image_map2  Reference to 2nd image map.
-#       row2        The row in the second image to compare.
-#       row2_width  Width of row.
-#
-#       force       If True, then force the comparison, even if the images
-#                   are different widths.  This means centering the smaller
-#                   image within the larger and comparing thusly.
-#
-#   returns
-#       0 = perfect match
-#       otherwise the bigger the worse the match
-#       None means error (either not a graphics file or different widths)
-#
-def find_difference_between_two_rows(image_map1, row1, row1_width, 
-                                     image_map2, row2, row2_width,
-                                     force = False):
-
-    # the running total of the distances
-    distance_sum = 0.0
-    
-    # Run this section when not forcing or the odd force case where
-    # both are the same width.
-    if (not force) or (row1_width == row2_width):
-        # check widths error (error when NOT forcing)
-        if row1_width != row2_width:
-            return None
-
-        # This is the easy one: go through each pixel and compare
-
-        for i in range(0, row1_width):
-            # get the pixels at the point in the row
-            pixel1 = image_map1[i, row1]
-            pixel2 = image_map2[i, row2]
-
-            # The distance between the two pixels is the square root of
-            # the differences of the color planes.
-            dist = get_distance_between_pixels(pixel1, pixel2)
-            distance_sum += dist
-
-        # return the average per pixel
-        return distance_sum / row1_width
-
-
-    else:
-        if row1_width < row2_width:
-            # Loop through row1.
-            # But we need to find where to start in row2
-            row2_start = int((row2_width - row1_width) / 2)
-            for i in range(0, row1_width):
-                pixel1 = image_map1[i, row1]
-                pixel2 = image_map2[i + row2_start, row2]
-
-                dist = get_distance_between_pixels(pixel1, pixel2)
-                distance_sum += dist
-
-            return distance_sum / row1_width
-
-        else:
-            # Row 2 is shorter.  Figure out where to start row 1 to
-            # match row 2.
-            row1_start = int((row1_width - row2_width) / 2)
-            for i in range(0, row2_width):
-                x1 = i + row1_start
-                y1 = row1
-
-                x2 = i
-                y2 = row2
-
-                # print(f'x1, y1 = [{x1}, {y1}], x2, y2 = [{x2}, {y2}]')
-                pixel1 = image_map1[i + row1_start, row1]
-                pixel2 = image_map2[i, row2]
-
-                dist = get_distance_between_pixels(pixel1, pixel2)
-                # print(f'--dist = {dist}')
-                distance_sum += dist
-
-            return distance_sum / row2_width
-
-
-#########
-#   Tries to find the best place to stitch together the images.
-#   This will only try the bottom third and the top third of each
-#   image before giving up.
-#
-#   preconditions
-#       optimize_area               The part of the bottom to check.
-#
-#   input
-#       top_image, bottom_image     These are graphic images that are already
-#                                   opened and verified.
-#
-#       force           When True, force the files to fit, even if the
-#                       widths are different.
-#
-#       NO...see below!!!
-#   returns
-#       A list of two numbers [a, b].  The first number is the number of 
-#       lines from the bottom of the first image that best matches.  
-#       The second number is the number of lines from the top image that 
-#       best matches.  If no good match was found, then [0, 0] is returned.
-#
-#   returns
-#       The number of the line in the bottom file that best matches the
-#       bottom row of the top file.  0 is the default (if no threshold
-#       is met).
-#       
-def find_optimal_join_location(top_image, bottom_image, force):
-
-    # the maps are needed for find_difference_between_two_rows()
-    top_image_map = top_image.load()
-    bottom_image_map = bottom_image.load()
-
-    # figure out how many lines we're inspecting in each image
-    top_image_num_lines_to_inspect = round((optimize_area / 100) * top_image.height)
-    bottom_image_num_lines_to_inspect = round((optimize_area / 100) * bottom_image.height)
-
-    # Make a range for the rows of the bottom image to compare with the bottom
-    # row of the top image.
-    bottom_range = range(0, bottom_image_num_lines_to_inspect + 1)
-
-
-    # These are the lines that match the best so far.  These are described
-    # from the bottom of the top and the top of the bottom (where they would
-    # join if they were perfectly aligned).
-    top_file_best_line = top_image.height - 1
-    bottom_file_best_line = 0
-
-    # The value of the best match so far.  The lower the better.
-    current_best_match = sys.maxsize
-
-
-    # See what the bottom of the top image matches within the bottom image
-    # inspection area.
-    for i in bottom_range:
-        diff = find_difference_between_two_rows(top_image_map, top_image.height - 1, top_image.width,
-                                                bottom_image_map, i, bottom_image.width,
-                                                force)
-        if debug:
-            print(f'find_optimal(), i = {i}, diff = {diff}')
-        if diff < current_best_match:
-            bottom_file_best_line = i
-            current_best_match = diff
-            if debug:
-                print(f'   (i = {i}): found better match ({current_best_match}): bottom file line = {bottom_file_best_line}]')
-
-    # if debug:
-    #     print(f'Best match is {current_best_match} for top line: {top_file_best_line}, bottom line: {bottom_file_best_line}')
-
-    # return [top_file_best_line, bottom_file_best_line]
-
-    # if this line is exactly the same, skip it.
-    if current_best_match < (SAME_PIXEL_THRESHOLD * max(top_image.width, bottom_image.width)):
-        bottom_file_best_line += 1
-
-    if debug:
-        print(f'Best match for bottom of the top file is: bottom file line: {bottom_file_best_line}')
-    return bottom_file_best_line
-
-
-#########
 #   Crops from the center of the given image.  If the crop dimensions are
 #   bigger than the given image, the new image will have black borders.
 #
@@ -611,7 +347,7 @@ def crop_center(pil_img, crop_width, crop_height):
 #       seed        The first filename to try.  May have an extension.
 #
 #   returns
-#       A name unique to the current directory.  If non can be found
+#       A name unique to the current directory.  If none can be found
 #       then None is returned (rather unlikely!).
 #
 def get_unique_name(seed):
@@ -652,7 +388,6 @@ def get_unique_name(seed):
 #       True    - file created successfully
 #       False   - problem (probably the two input files are different widths)
 #
-# def join_files_vertically(top_image, bottom_image, out_file, force = False):
 def join_files_vertically(images_list, out_file, force = False):
 
     if debug:
@@ -696,65 +431,22 @@ def join_files_vertically(images_list, out_file, force = False):
                 print(f'image[{i}] with width {this_width} has adjustement of {width_adjustment_list[i]}')
 
 
-        # # It's time to FORCE the issue!  hehe
-        # # Make sure our new width is the max width.  And set the offset
-        # # needed to center the less wide portion.
-        # if top_image.width > bottom_image.width:
-        #     new_width = top_image.width     # yeah redundant, but makes code easier to follow
-        #     bottom_width_adjustment = int((top_image.width - bottom_image.width) / 2)
-        # else:
-        #     new_width = bottom_image.width
-        #     top_width_adjustment = int((bottom_image.width - top_image.width) / 2)
-
-        # if debug:
-        #     print(f'top_width_adjustment = {top_width_adjustment}')
-        #     print(f'bottom_width_adjustment = {bottom_width_adjustment}')
-
-
-
-    # stich_row = 0  -------- no longer optimizing join location
-
     # figure out height of output image
     out_image_height = 0
     for image in images_list:
         out_image_height += image.height
 
-
-    # # do we need to optimize the joining location?  ----------- no longer doing this
-    # if optimize_stitching:
-    #     stich_row = find_optimal_join_location(top_image, bottom_image, force)
-
-    #     # skip this optimal row--it's probably a repeat.  TODO: test this hypothesis extensively!
-    #     out_image_height -= stich_row
-
     # new image combines heights
     out_image = Image.new('RGB', (widest, out_image_height))
 
-
-    # # Figure out what part of the bottom to paste in.  This is the whole    ------------- no longer doing this
-    # # of the bottom image if there is no optimized stitching.  If the stitching
-    # # is optimized, then it's the stitch_row to the end of the bottom image.
-    # used_bottom_part = bottom_image.crop((0,
-    #                                       stich_row,
-    #                                       bottom_image.width,
-    #                                       bottom_image.height - 1
-    #                                      ))
-    # if debug:
-        # print(f'cropping bottom image: ({bottom_width_adjustment}, {stich_row}, {bottom_image.width}, {bottom_image.height - 1})')
-
-
-    # paste the pieces (centering, which will do nothing if the width already matches
-    # the image width)
+    # Paste the pieces (centering, which will do nothing if the width already matches
+    # the image width) together
     paste_line = 0
     for i in range(len(images_list)):
         out_image.paste(images_list[i], (width_adjustment_list[i], paste_line))
         paste_line += images_list[i].height
 
-    # out_image.paste(top_image, (top_width_adjustment, 0))
-    # out_image.paste(used_bottom_part, (bottom_width_adjustment, top_image.height))
-
-
-    # and save result and clean up
+    # Save result and clean up (but don't overwrite anything!)
     out_image.save(out_file)
     out_image.close()
 
@@ -941,9 +633,6 @@ if result:
 
 # except:
 #     exit('unable to open a file!')
-
-# optimal_loc = find_optimal_join_location(top_image, bottom_image)
-# print(f'optimal location is {optimal_loc}')
 
 # # clean up
 # if top_image != None:
