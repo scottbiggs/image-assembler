@@ -416,7 +416,7 @@ def join_files_vertically(images_list, out_file, force = False):
                 widest = image.width
 
     if narrowest != widest:
-        if force == False:
+        if force == False:          # todo: does this ever happen?
             print('Images do not have the same width--aborting!')
             return False
 
@@ -428,7 +428,7 @@ def join_files_vertically(images_list, out_file, force = False):
             width_adjustment_list[i] = int((widest - this_width) / 2)
 
             if debug:
-                print(f'image[{i}] with width {this_width} has adjustement of {width_adjustment_list[i]}')
+                print(f'image[{i}] with width {this_width} has adjustment of {width_adjustment_list[i]}')
 
 
     # figure out height of output image
@@ -446,7 +446,7 @@ def join_files_vertically(images_list, out_file, force = False):
         out_image.paste(images_list[i], (width_adjustment_list[i], paste_line))
         paste_line += images_list[i].height
 
-    # Save result and clean up (but don't overwrite anything!)
+    # Save result and clean up
     out_image.save(out_file)
     out_image.close()
 
@@ -457,8 +457,7 @@ def join_files_vertically(images_list, out_file, force = False):
 #   Joins two files horizontally.
 #
 #   params
-#       left_image          Image for the left file
-#       right_image         Image for the right file
+#       images_list         List of images to join
 #       out_file            filename for the new output file.
 #       force               force the files together, even if the heights don't match
 #
@@ -470,56 +469,71 @@ def join_files_vertically(images_list, out_file, force = False):
 #       True    - file created successfully
 #       False   - problem (probably the two input files are different heights)
 #
-def join_files_horizontally(left_image, right_image, out_file, force = False):
+def join_files_horizontally(images_list, out_file, force = False):
 
     if debug:
         print(f'joining files horizontally, force = {force}')
 
-    new_height = left_image.height
-    left_height_adjustment = 0          # offset to center the image
-    right_height_adjustment = 0
+    # height to use if we're not forcing
+    first_height = images_list[0].height
+    tallest = first_height
+    shortest = first_height
 
-    # check for correct height
-    if left_image.height != right_image.height:
-        if force == False:
+    # create height adjustment list for each image to join
+    height_adjustment_list = [0] * len(images_list)
+
+    # check for correct height--all files.  And while we're at it
+    # figure out the tallest and shortest heights.
+    for image in images_list:
+        if image.height != first_height:
+            if force == False:
+                print('Images do not have the same height--aborting!!')
+                return False
+
+            if image.height < shortest:
+                shortest = image.height
+            elif image.height > tallest:
+                tallest = image.height
+
+    # see if there are height descrepencies.
+    if shortest != tallest:
+        if force == False:      # todo: shouldn't this never happen?
             print('Images do not have the same height--aborting!!')
             return False
 
+
+
+
+
+
+
+
         # It's time to Force the issue :)
-        # Make sure the new height is the max of the two.   
-        # And set the offset needed to center the less tall portion. 
-        if left_image.height > right_image.height:
-            new_height = left_image.height
-            right_height_adjustment = int((left_image.height - right_image.height) / 2)
-        else:
-            new_height = right_image.height
-            left_height_adjustment = int((right_image.height - left_image.height) / 2)
+        # Make sure the new height is the tallest of the inputs.   
+        # And set the offsets needed to center the less tall pieces.
+        for i in range(len(images_list)):
+            this_height = images_list[i].height
+            height_adjustment_list[i] = int((tallest - this_height) / 2)
 
-        if debug:
-            print(f'left_height_adjustment = {left_height_adjustment}')
-            print(f'right_height_adjustment = {right_height_adjustment}')
+            if debug:
+                print(f'image[{i}] with height {this_height} has adjustment of {height_adjustment_list[i]}')
 
-    stich_row = 0
-    out_image_width = left_image.width + right_image.width
+    # figure out width of output image
+    out_image_width = 0
+    for image in images_list:
+        out_image_width += image.width
 
-    # optimize joining location?
-    if optimize_stitching:
-        exit('TODO: optimize stitching for horizontal joining!!!  Sorry.')
+    # new image combines widths
+    out_image = Image.new('RGB', (out_image_width, tallest))
 
-        # stich_row = find_optimal_join_location(top_image, bottom_image, force)
+    # Paste the pieces (centering, which will do nothing if the height already
+    # matches the image height) together.
+    paste_line = 0
+    for i in range(len(images_list)):
+        out_image.paste(images_list[i], (paste_line, height_adjustment_list[i]))
+        paste_line += images_list[i].width
 
-        # # skip this optimal row--it's probably a repeat.  TODO: test this hypothesis extensively!
-        # out_image_height -= stich_row
-
-    out_image = Image.new('RGB', (out_image_width, new_height))
-
-    # paste the pieces (centering, which will do nothing if the images have
-    # the same height).
-
-    out_image.paste(left_image, (0, left_height_adjustment))
-    out_image.paste(right_image, (left_image.width, right_height_adjustment))
-
-    # and save and cleanup
+    # save and clean up
     out_image.save(out_file)
     out_image.close()
 
