@@ -211,7 +211,7 @@ def create_output_filename():
     start_name_prefix = get_file_prefix(filenames[0])
     end_name_prefix = get_file_prefix(filenames[-1])   # python way of getting last element in list
 
-    new_output_file = start_name_prefix + '-' + end_name_prefix + '.jpg'
+    new_output_file = start_name_prefix + ' - ' + end_name_prefix + '.jpg'
     if debug:
         print(f'   new_output_file = {new_output_file}')
     return get_unique_name(new_output_file)     # make sure we don't overwrite some file
