@@ -22,26 +22,20 @@ from image_comparator import *
 #
 USAGE = """
 
-    merge_images2  -- a second program to try to fix munged images from bad PDF files.
+    merge  -- a program to try to fix munged images from bad PDF files.
 
 USAGE:
-    merge_images2 num [-o]
+    merge num
 
 Where 'num' is an integer that tells how many pieces each original image has been
 broken into.
-
--o      This option tells the program to name the files using the numbering
-        system of the first file of each group instead of a sequential numbering.
-        Yep, that's an Oh (the letter between n and p).
 
 This will work ONLY in the current directory.  Maybe later I'll deal with
 directories, but that seems unnecessary now.  But at least I'm smart enough
 to only deal with image files; all other file types will be ignored.
 
-The output files will be named 'assembled_###'.jpg and will be placed in the
-same directory.  
-
-NOTE:  Anything file the same name will be overwritten!!!
+The output files will be named 'assembled_[original_name_of_first_file]'.jpg and 
+will be placed in the same directory.  
 
 """
 
@@ -51,8 +45,6 @@ FILE_PREFIX = 'assembled_'
 
 # to turn on verbose messages
 DEBUG = False
-
-ORIGINAL_ORDERING = '-o'
 
 
 ##############################
@@ -68,7 +60,9 @@ num_pieces = 0
 
 # When True, use order numbers in the assembled name from the last
 # digits of the first item in the group.
-original_ordering = False
+#
+# todo: remove this--it's no longer used (will always be true)
+original_ordering = True
 
 
 #########
@@ -201,28 +195,13 @@ print('start')
 #
 
 arg_len = len(sys.argv)
-if (arg_len < 2) or (arg_len > 3):
+if arg_len != 2:                                # one arg necessary
     exit(USAGE)
 
-if arg_len == 2:                                # just one arg
-    try:
-        num_pieces = int(sys.argv[1])
-    except:
-        exit(USAGE)
-
-elif sys.argv[1].lower() == ORIGINAL_ORDERING:  # 2 args; first is -o
-    original_ordering = True
-    num_pieces = int(sys.argv[2])
-
-elif sys.argv[2].lower() == ORIGINAL_ORDERING:  # 2 args; 2nd is -o
-    original_ordering = True
+try:
     num_pieces = int(sys.argv[1])
-
-else:
+except:
     exit(USAGE)
-
-if original_ordering:
-    print('Numbering files using the original file suffixes.')
 
           
 ########
