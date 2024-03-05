@@ -16,7 +16,7 @@ USAGE = """
 Joiner - a program to stitch together two images.
 
 Usage:
-    joiner <file1_name> <file2_name> +[file?_name] [-h] [-f] [-s]|[-S <num>] [-o out_file] [-d]
+    joiner <file1_name> <file2_name> +[file?_name] [-h] [-f] [-o out_file] [-d]
 
 Joins files vertically or horizontally (using the -h options).  File1 will be on top 
 (or left-most), file2 will be next, file3 will be after that, and so on for as many files
