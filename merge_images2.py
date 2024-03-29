@@ -188,7 +188,7 @@ def join_files(file_list):
 #   script begin
 ##############################
 
-print('start')
+print('merge start:')
 
 
 ########
