@@ -104,7 +104,8 @@ def get_numerical_suffix(filename):
 def save_image(img, name, unique_name = True):
     if unique_name:
         prefix, extension = os.path.splitext(name)
-        print(f'save_image(), prefix = {prefix}, extension = {extension}')
+        if DEBUG:
+            print(f'save_image(), prefix = {prefix}, extension = {extension}')
 
         current_name = f'{prefix}{extension}'
         unique_suffix = 0       # int
