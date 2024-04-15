@@ -21,14 +21,16 @@ from image_comparator import *
 #   constants
 #
 USAGE = """
-
     merge  -- a program to try to fix munged images from bad PDF files.
 
 USAGE:
-    merge num
+    merge [-h] num
 
 Where 'num' is an integer that tells how many pieces each original image has been
 broken into.
+
+    -h      indicates that the files should be stitched together horizontally
+            instead of vertically
 
 This will work ONLY in the current directory.  Maybe later I'll deal with
 directories, but that seems unnecessary now.  But at least I'm smart enough
@@ -44,7 +46,10 @@ will be placed in the same directory.
 FILE_PREFIX = 'assembled_'
 
 # to turn on verbose messages
-DEBUG = False
+DEBUG = True
+
+# command param to indicate horizontal stitching
+HORIZ_PARAM = '-h'
 
 
 ##############################
@@ -63,6 +68,59 @@ num_pieces = 0
 #
 # todo: remove this--it's no longer used (will always be true)
 original_ordering = True
+
+# When True, the pieces should be stitched together horizontally.
+horizontal = False
+
+
+#########
+#
+#   Parses command line params.  Will exit program if params don't
+#   make sense.
+#
+#   side effects:
+#       horizontal      Set to True iff the HORIZ_PARAM exists
+#
+#       num_pieces      Set to the number of pieces per image
+#
+def parse_params():
+    global horizontal
+    global num_pieces
+
+    # loop through all the params
+    counter = 1
+    while counter < len(sys.argv):
+        this_param = sys.argv[counter]
+
+        if DEBUG:
+            print(f'counter = {counter}.  this_param = {this_param} (lowercase = {this_param.lower()})')
+
+        if this_param.lower() == HORIZ_PARAM:
+            horizontal = True
+            if DEBUG:
+                print('   horizonatal is set to True')
+
+        else:
+            # Must be a number.  But have we already set the number? that ain't right.
+            if num_pieces != 0:
+                if DEBUG:
+                    print(f'extra parameter: {this_param}, aborting')
+                exit(USAGE)
+
+            try:
+                num_pieces = int(this_param)
+            except:
+                if DEBUG:
+                    print(f'unable to parse {this_param} into an integer!')
+                exit(USAGE)
+
+        counter += 1
+
+
+    if num_pieces <= 0:
+        if DEBUG:
+            print(f'no (or illegal) count found!')
+        exit(USAGE)
 
 
 #########
@@ -150,31 +208,47 @@ def join_files(file_list):
         # open the named image
         images.append(Image.open(filename))
 
-    # find the width and height of the new joined image (width is the max)
+    # find the width and height of the new joined image
     width = 0
     height = 0
     for image in images:
-        if image.width > width:
-            width = image.width
-        height += image.height
+        if horizontal:
+            # height is max height; width is sum of all widths
+            if image.height > height:
+                height = image.height
+            width += image.width
+
+        else:
+            # width is max width; height is sum of heights
+            if image.width > width:
+                width = image.width
+            height += image.height
 
 
     # let's make a new image and add in the contents of the other images
     new_image = Image.new('RGB', (width, height))
 
-    current_y_to_paste = 0
+    # marker for where to paste the next image
+    current_place_to_paste = 0
+
     for i in range(len(file_list)):
-        width_adjustment = int((width - images[i].width) / 2)   # center
-        new_image.paste(images[i], (width_adjustment, current_y_to_paste))
-        current_y_to_paste += images[i].height
+        if horizontal:
+            if DEBUG:
+                print(f'i = {i}, current_place_to_paste = {current_place_to_paste}')
+            height_adjustment = int((height - images[i].height) / 2)    # center
+            new_image.paste(images[i], (current_place_to_paste, height_adjustment))
+            current_place_to_paste += images[i].width
+
+        else:
+            width_adjustment = int((width - images[i].width) / 2)   # center
+            new_image.paste(images[i], (width_adjustment, current_place_to_paste))
+            current_place_to_paste += images[i].height
 
     # and save the result
     if original_ordering:
         save_image(new_image, f'{FILE_PREFIX}{original_ordering_count}.jpg')
-#        new_image.save(f'{FILE_PREFIX}{original_ordering_count}.jpg')
     else:
         save_image(new_image, f'{FILE_PREFIX}{output_file_count}.jpg')
-#        new_image.save(f'{FILE_PREFIX}{output_file_count}.jpg')
 
     output_file_count += 1
 
@@ -185,26 +259,13 @@ def join_files(file_list):
 
 
 ##############################
-#   script begin
+#   script begin (main)
 ##############################
 
 print('merge start:')
 
+parse_params()
 
-########
-#   parse command line arguments
-#
-
-arg_len = len(sys.argv)
-if arg_len != 2:                                # one arg necessary
-    exit(USAGE)
-
-try:
-    num_pieces = int(sys.argv[1])
-except:
-    exit(USAGE)
-
-          
 ########
 # A list of all the files in the current directory
 # in an array (or list?) of strings.
