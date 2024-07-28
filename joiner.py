@@ -18,8 +18,8 @@ Joiner - a program to stitch together two images.
 Usage:
     joiner <file1_name> <file2_name> +[file?_name] [-h] [-f] [-o out_file] [-d]
 
-Joins files vertically or horizontally (using the -h options).  File1 will be on top 
-(or left-most), file2 will be next, file3 will be after that, and so on for as many files
+Joins files vertically or horizontally or vertically (using the -v options).  File1 will be
+left-most (or top), file2 will be next, file3 will be after that, and so on for as many files
 as you want to join.
 
 The default new filename will the name of the first file, a dash (minus sign), and the name of
@@ -27,8 +27,8 @@ the last file.  To specify the output file, use the -o option.
 
 The top and bottom file should be the same width (unless -f option is used).
 
--h      Join horizontally instead of vertically.  The first file will
-        be on the left, the second file will be on the right, etc.
+-v      Join vertically instead of horizontally.  The first file will
+        be on top, the second file will be on the below that, etc.
 
 -f      Force the files to join, even if their widths (heights if -h is used) 
         don't match.  The final width (height) will be the same as the 
@@ -42,7 +42,7 @@ The top and bottom file should be the same width (unless -f option is used).
 
 # command line param that indicates the files should be joined horizontally
 # instead of vertically
-JOIN_HORIZ = '-h'
+JOIN_VERT = '-v'
 
 # indicates that we should FORCE the two files to fit, even if their
 # widths are different.
@@ -71,8 +71,8 @@ SAME_PIXEL_THRESHOLD = 0.04
 #   globals
 #
 
-# when True, use a horizontal instead of vertical joining
-join_horizonatally = False
+# when True, use a horizontal (false means vertical joining)
+join_horizonatally = True
 
 # when True, force the files to join, even if the widths don't match.
 force_fit = False
@@ -124,10 +124,10 @@ def parse_params():
         if debug:
             print(f'counter = {counter}.  this_param = {this_param} (lowercase = {this_param.lower()})')
 
-        if this_param.lower() == JOIN_HORIZ:
-            join_horizonatally = True
+        if this_param.lower() == JOIN_VERT:
+            join_horizonatally = False
             if debug:
-                print('   join_horizonatally is set to True')
+                print('   join_horizonatally is set to False')
 
         elif this_param.lower() == FORCE_PARAM:
             force_fit = True
