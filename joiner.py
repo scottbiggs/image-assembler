@@ -30,9 +30,9 @@ The top and bottom file should be the same width (unless -f option is used).
 -v      Join vertically instead of horizontally.  The first file will
         be on top, the second file will be on the below that, etc.
 
--f      Force the files to join, even if their widths (heights if -h is used) 
-        don't match.  The final width (height) will be the same as the 
-        widest (tallest) file, and the thinner (shorter) file will be centered.
+-d      Don't force the files to join if their heights (widths if -v is used) 
+        don't match.  The final height (width) will be the same as the 
+        tallest (widest) file, and the shorter (thinner) file will be centered.
 
 -o      Use to specify the output filename. Will overwrite if name already exists.
 
@@ -44,9 +44,9 @@ The top and bottom file should be the same width (unless -f option is used).
 # instead of vertically
 JOIN_VERT = '-v'
 
-# indicates that we should FORCE the two files to fit, even if their
+# indicates that we should NOT force the two files to fit, even if their
 # widths are different.
-FORCE_PARAM = '-f'
+DONT_FORCE_PARAM = '-d'
 
 # Indicates that the following param is the output name for the new file
 # (instead of using the default).
@@ -75,7 +75,7 @@ SAME_PIXEL_THRESHOLD = 0.04
 join_horizonatally = True
 
 # when True, force the files to join, even if the widths don't match.
-force_fit = False
+force_fit = True
 
 debug = False
 
@@ -129,10 +129,10 @@ def parse_params():
             if debug:
                 print('   join_horizonatally is set to False')
 
-        elif this_param.lower() == FORCE_PARAM:
-            force_fit = True
+        elif this_param.lower() == DONT_FORCE_PARAM:
+            force_fit = False
             if debug:
-                print('   force_fit is set to True')
+                print('   force_fit is set to False')
 
         elif this_param.lower() == DEBUG_PARAM:
             debug = True
