@@ -46,7 +46,7 @@ will be placed in the same directory.
 FILE_PREFIX = 'assembled_'
 
 # to turn on verbose messages
-DEBUG = True
+DEBUG = False
 
 # command param to indicate horizontal stitching
 HORIZ_PARAM = '-h'
@@ -103,23 +103,20 @@ def parse_params():
         else:
             # Must be a number.  But have we already set the number? that ain't right.
             if num_pieces != 0:
-                if DEBUG:
-                    print(f'extra parameter: {this_param}, aborting')
+                print(f'extra parameter: {this_param}, aborting')
                 exit(USAGE)
 
             try:
                 num_pieces = int(this_param)
             except:
-                if DEBUG:
-                    print(f'unable to parse {this_param} into an integer!')
+                print(f'unable to parse {this_param} into an integer!')
                 exit(USAGE)
 
         counter += 1
 
 
     if num_pieces <= 0:
-        if DEBUG:
-            print(f'no (or illegal) count found!')
+        print(f'no (or illegal) count found!')
         exit(USAGE)
 
 
@@ -262,7 +259,7 @@ def join_files(file_list):
 #   script begin (main)
 ##############################
 
-print('merge start:')
+print('merge is starting...')
 
 parse_params()
 
@@ -340,6 +337,5 @@ while i < len(file_list):
 #   wrapping up
 #
 print(f'Success!  Joined {num_joined_files} files.')
-print ("done.")
 
 
