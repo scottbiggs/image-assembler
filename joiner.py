@@ -471,7 +471,7 @@ def join_files_vertically(images_list, out_file, overlap, offset, force = False)
     # figure out height of output image
     out_image_height = 0
     for image in images_list:
-        out_image_height += image.height
+        out_image_height += image.height - overlap
 
     # new image combines heights
     out_image = Image.new('RGB', (widest, out_image_height))
@@ -481,12 +481,12 @@ def join_files_vertically(images_list, out_file, overlap, offset, force = False)
     paste_line = 0
     for i in range(len(images_list)):
         if i == 1:
-            # only the 2nd image can have an offset
-            out_image.paste(images_list[i], (width_adjustment_list[i] + offset, paste_line))
+            # only the 2nd and later images can have an offset and overlap
+            out_image.paste(images_list[i], (width_adjustment_list[i] + offset, paste_line - overlap))
         else:
             out_image.paste(images_list[i], (width_adjustment_list[i], paste_line))
             
-        paste_line += images_list[i].height
+        paste_line += images_list[i].height - overlap
 
     # Save result and clean up
     out_image.save(out_file)
