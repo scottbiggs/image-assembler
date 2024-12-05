@@ -505,13 +505,13 @@ def join_files_vertically(images_list, out_file, overlap, offset, space, force =
     # the image width) together. Don't forget the offset and space!
     paste_line = 0
     for i in range(len(images_list)):
-        if i == 1:
+        if i >= 1:
             # only the 2nd and later images can have an offset and overlap
-            out_image.paste(images_list[i], (width_adjustment_list[i] + offset, paste_line - overlap + space))
+            out_image.paste(images_list[i], (width_adjustment_list[i] + offset, paste_line - overlap))
         else:
             out_image.paste(images_list[i], (width_adjustment_list[i], paste_line))
             
-        paste_line += images_list[i].height - overlap
+        paste_line += images_list[i].height - overlap + space
 
     # Save result and clean up
     out_image.save(out_file)
@@ -600,11 +600,11 @@ def join_files_horizontally(images_list, out_file, overlap, offset, space, force
     for i in range(len(images_list)):
         if i >= 1:
             # only do the 2nd, 3rd, etc images with an offset (and overlap)!
-            out_image.paste(images_list[i], (paste_line - overlap + space, height_adjustment_list[i] + offset))
+            out_image.paste(images_list[i], (paste_line - overlap, height_adjustment_list[i] + offset))
         else:
             out_image.paste(images_list[i], (paste_line, height_adjustment_list[i]))
 
-        paste_line += images_list[i].width - overlap
+        paste_line += images_list[i].width - overlap + space
 
     # save and clean up
     out_image.save(out_file)
