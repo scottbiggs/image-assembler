@@ -38,6 +38,8 @@ The top and bottom file should be the same width (unless -f option is used).
 
 -ov     Specify the number of pixels that the images overlap with this.
 
+-ov2    Same as above, except that the left (top) overlaps the right (bottom).
+
 -off    Change the offset from center by this amount.  Use to re-align images that were
         poorly cropped to begin with.  Can be positive or negative.
 
@@ -64,6 +66,10 @@ OUTPUT_PARAM = '-o'
 # Indicates that the following is an integer that specifies how many pixels
 # overlap in the images.
 OVERLAP_PARAM = '-ov'
+
+# The following integer is the amount (pixels) to overlap the left (top) image
+# over the right (bottom) image.  Similar to above.
+OVERLAP_PARAM2 = '-ov2'
 
 # Indicates that the following param is an integer to specify how many pixels
 # to offset from center.
@@ -112,6 +118,9 @@ offset_pixels = 0
 # The number of pixels that overlap between successive images
 overlap_pixels = 0
 
+# Number of pixels that overlap in the reverse direction (left over right or top over bottom)
+overlap_pixels2 = 0
+
 # The number of black pixels to insert between successive images
 space_pixels = 0
 
@@ -147,6 +156,7 @@ def parse_params():
     global debug
     global offset_pixels
     global overlap_pixels
+    global overlap_pixels2
     global space_pixels
 
 
@@ -191,6 +201,12 @@ def parse_params():
             if debug:
                 print(f'   overlap: {overlap_pixels}')
 
+        elif this_param.lower() == OVERLAP_PARAM2:
+            counter += 1
+            overlap_pixels2 = int(sys.argv[counter])
+            if debug:
+                print(f'   overlap: {overlap_pixels2}')
+
         elif this_param.lower() == SPACE_PARAM:
             counter += 1
             space_pixels = int(sys.argv[counter])
@@ -218,6 +234,7 @@ def parse_params():
         print(f'   join_horiz = {join_horizonatally}')
         print(f'   offset_pixels = {offset_pixels}')
         print(f'   overlap_pixels = {overlap_pixels}')
+        print(f'   overlap_pixels2 = {overlap_pixels2}')
         print(f'   space_pixels = {space_pixels}')
         print(f'   force fit = {force_fit}')
 
@@ -526,7 +543,8 @@ def join_files_vertically(images_list, out_file, overlap, offset, space, force =
 #   params
 #       images_list         list of images to join
 #       out_file            filename for the new output file
-#       overlap             number of pixels to overlap the images
+#       overlap             number of pixels to overlap the right images over the left (bottom over top)
+#       overlap2            overlap left over right (top over bottom)
 #       offset              number of pixels to force the 2nd image to move (positive
 #                               moves down) when joining. 0 means no offset
 #       space               number of black pixels to insert between the images
@@ -540,10 +558,10 @@ def join_files_vertically(images_list, out_file, overlap, offset, space, force =
 #       True    - file created successfully
 #       False   - problem (probably the two input files are different heights)
 #
-def join_files_horizontally(images_list, out_file, overlap, offset, space, force = False):
+def join_files_horizontally(images_list, out_file, overlap, overlap2, offset, space, force = False):
 
     if debug:
-        print(f'joining files horizontally, outfile = {out_file}, overlap = {overlap}, offset = {offset}, space = {space}, force = {force}')
+        print(f'joining files horizontally, outfile = {out_file}, overlap = {overlap}, overlap2 = {overlap2}, offset = {offset}, space = {space}, force = {force}')
 
     # height to use if we're not forcing
     first_height = images_list[0].height
@@ -585,8 +603,9 @@ def join_files_horizontally(images_list, out_file, overlap, offset, space, force
 
     # figure out width of output image
     out_image_width = 0
+    overlap_width = max(overlap, overlap2)
     for image in images_list:
-        out_image_width += image.width - overlap
+        out_image_width += image.width - overlap_width
 
     # The amount of space to add is the space * (number of images - 1)
     out_image_width += (len(images_list) - 1) * space
@@ -595,12 +614,23 @@ def join_files_horizontally(images_list, out_file, overlap, offset, space, force
     out_image = Image.new('RGB', (out_image_width, tallest))
 
     # Paste the pieces (centering, which will do nothing if the height already
-    # matches the image height) together.  Don't forget to add the offset and the space!
+    # matches the image height) together.  Don't forget to add the offset, the space, 
+    # and subtract the overlap!
     paste_line = 0
     for i in range(len(images_list)):
         if i >= 1:
             # only do the 2nd, 3rd, etc images with an offset (and overlap)!
-            out_image.paste(images_list[i], (paste_line - overlap, height_adjustment_list[i] + offset))
+            if overlap >= overlap2:
+                # overlap the right over the left (or bottom over top)
+                out_image.paste(images_list[i], (paste_line - overlap, height_adjustment_list[i] + offset))
+            else:
+                # Overlap the left over the right--this is a little more complicated.
+                # First, make a temporary image from the image to paste, but take away the
+                # part that is being overlapped
+                tmp_image = Image.new('RGB', (images_list[i].width - overlap2, images_list[i].height))
+                tmp_image.paste(images_list[i], (0 - overlap2, 0))    # will negative value work here?
+                out_image.paste(tmp_image, (paste_line, height_adjustment_list[i] + offset))
+
         else:
             out_image.paste(images_list[i], (paste_line, height_adjustment_list[i]))
 
@@ -679,9 +709,9 @@ def join_files(infile_list, out_file, offset, space, force = False):
     return_val = False
 
     if join_horizonatally:
-        return_val = join_files_horizontally(in_image_list, out_file, overlap_pixels, offset, space, force)
+        return_val = join_files_horizontally(in_image_list, out_file, overlap_pixels, overlap_pixels2, offset, space, force)
     else:
-        return_val = join_files_vertically(in_image_list, out_file, overlap_pixels, offset, space, force)
+        return_val = join_files_vertically(in_image_list, out_file, overlap_pixels, overlap_pixels2, offset, space, force)
 
     for image in in_image_list:
         image.close()
