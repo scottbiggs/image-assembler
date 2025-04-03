@@ -3,8 +3,10 @@
 
 import math
 from PIL import Image
-from colormath.color_objects import LabColor, HSLColor      # takes a while
-from colormath.color_conversions import convert_color       # takes a while too
+
+# Currently not using these
+# from colormath.color_objects import LabColor, HSLColor      # takes a while
+# from colormath.color_conversions import convert_color       # takes a while too
 
 
 ####################
