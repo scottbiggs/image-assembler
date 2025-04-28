@@ -40,6 +40,10 @@ broken into.
             is less than half the height of the last normal piece.  Could be useful
             in some cases.
 
+    -b [%]  Tries to add stitching (ala -a), but uses the given percent (out of 100).
+            So merge -aa 66 will stitch if the next file is 66% smaller than the previous
+            piece (instead of only 50 percent).
+
 This will work ONLY in the current directory.  Maybe later I'll deal with
 directories, but that seems unnecessary now.  But at least I'm smart enough
 to only deal with image files; all other file types will be ignored.
@@ -61,6 +65,11 @@ HORIZ_PARAM = '-h'
 
 # param to indicate that we will try to figure out if another piece should be added
 ADD_PIECE_PARAM = '-a'
+
+# param to indicate that we're using stitching, but the limit is provided as the next
+# parameter
+ADD_PIECE_PERCENT_PARAM = '-b'
+
 
 ##############################
 #   globals
@@ -85,6 +94,10 @@ horizontal = False
 # When True, we should try to add one more piece when stitching (if it meets our criteria)
 add_piece = False
 
+# When trying stitching (add_piece = true), this is the amount to test for the stitching condition.
+add_piece_percent = 0.5
+
+
 #########
 #
 #   Parses command line params.  Will exit program if params don't
@@ -95,11 +108,14 @@ add_piece = False
 #
 #       add_piece       Set to True iff ADD_PIECE_PARAM exists
 #
+#       add_piece_percent   May change if ADD_PIECE_PERCENT_PARAM exists
+#
 #       num_pieces      Set to the number of pieces per image
 #
 def parse_params():
     global horizontal
     global add_piece
+    global add_piece_percent
     global num_pieces
 
     # loop through all the params
@@ -115,15 +131,22 @@ def parse_params():
             if DEBUG:
                 print('   horizonatal is set to True')
 
-        if this_param.lower() == ADD_PIECE_PARAM:
+        elif this_param.lower() == ADD_PIECE_PARAM:
             add_piece = True
             if DEBUG:
                 print('   add_piece is set to True')
 
+        elif this_param.lower() == ADD_PIECE_PERCENT_PARAM:
+            add_piece = True
+            counter += 1
+            add_piece_percent = 100.0 / float(int(sys.argv[counter]))
+            if DEBUG:
+                print(f'   add_piece is True, add_piece_percent = {add_piece_percent}')
+
         else:
             # Must be a number.  But have we already set the number? that ain't right.
             if num_pieces != 0:
-                print(f'extra parameter: {this_param}, aborting')
+                print(f'extra parameter {counter}: {this_param}, aborting')
                 exit(USAGE)
 
             try:
@@ -134,6 +157,7 @@ def parse_params():
                 exit(USAGE)
 
         counter += 1
+        print(f'end of loop: counter = {counter}')
 
 
     if num_pieces <= 0:
@@ -252,12 +276,14 @@ def join_files(file_list, optional_file = None):
         extra_image = Image.open(optional_file)
         if horizontal:
             # check horizontal
-            if extra_image.width * 2 < images[len(images) - 1].width:   # it's less than half width
+            if extra_image.width < (images[len(images) - 1].width) * add_piece_percent:
+            # if extra_image.width * 2 < images[len(images) - 1].width:   # it's less than half width
                 using_optional = True
 
         else:
             #check vertical
-            if extra_image.height * 2 < images[len(images) - 1].height:
+            if extra_image.height < (images[len(images) - 1].height) * add_piece_percent:
+            # if extra_image.height * 2 < images[len(images) - 1].height:
                 using_optional = True
 
     # find the width and height of the new joined image
