@@ -16,7 +16,7 @@ USAGE = """
 Joiner - a program to stitch together two images.
 
 Usage:
-    joiner <file1_name> <file2_name> +[file?_name] [-v] [-ov <integer>] [-off <integer>] [-o out_file] [-debug]
+    joiner <file1_name> <file2_name> +[file?_name] [-v] [-ov[2] <integer>] [-ovlr <int> <int>] [-off <integer>] [-o out_file] [-debug]
 
 Joins files vertically or horizontally or vertically (using the -v options).  File1 will be
 left-most (or top), file2 will be next, file3 will be after that, and so on for as many files
@@ -39,6 +39,12 @@ The top and bottom file should be the same width (unless -f option is used).
 -ov     Specify the number of pixels that the images overlap with this.
 
 -ov2    Same as above, except that the left (top) overlaps the right (bottom).
+
+-ovlr   The Power version of ov & ov2.  Takes TWO parameters!  The first specifies how 
+        much of the left (top) image to trim (starting from the right), while the 
+        second param specifies how much of the right image to trim (starting from the 
+        left side).  Useful if there's lots of garbage in the middle of the images you 
+        want to join.  NOTE: this only joins 2 images (extra will be ignored)!!!
 
 -off    Change the offset from center by this amount.  Use to re-align images that were
         poorly cropped to begin with.  Can be positive or negative.
@@ -70,6 +76,11 @@ OVERLAP_PARAM = '-ov'
 # The following integer is the amount (pixels) to overlap the left (top) image
 # over the right (bottom) image.  Similar to above.
 OVERLAP_PARAM2 = '-ov2'
+
+# The Master overlapping param.  Takes two params, the first tells how much to
+# trim from the first image, the second specifies how much to trim from the
+# second image.
+OVERLAP_LEFT_RIGHT_PARAM = '-ovlr'
 
 # Indicates that the following param is an integer to specify how many pixels
 # to offset from center.
@@ -104,7 +115,7 @@ join_horizonatally = True
 # when True, force the files to join, even if the widths don't match.
 force_fit = True
 
-debug = False
+debug = True
 
 # List of the names of the input files in order
 filenames = []
@@ -123,6 +134,13 @@ overlap_pixels2 = 0
 
 # The number of black pixels to insert between successive images
 space_pixels = 0
+
+# Used for overlap left/right.  This is number of pixels to trim from the RIGHT side of the
+# first (left) image.  From the bottom of the top image if vertical
+trim_left = 0
+
+# Similar to trim_left, but for the left side of the right image.
+trim_right = 0
 
 
 ############################
@@ -158,6 +176,8 @@ def parse_params():
     global overlap_pixels
     global overlap_pixels2
     global space_pixels
+    global trim_left
+    global trim_right
 
 
     # loop through all the params
@@ -205,7 +225,16 @@ def parse_params():
             counter += 1
             overlap_pixels2 = int(sys.argv[counter])
             if debug:
-                print(f'   overlap: {overlap_pixels2}')
+                print(f'   overlap2: {overlap_pixels2}')
+
+        elif this_param.lower() == OVERLAP_LEFT_RIGHT_PARAM:
+            print(f'  -> starting overlap_left_right_param')
+            counter += 1
+            trim_left = int(sys.argv[counter])
+            counter += 1
+            trim_right = int(sys.argv[counter])
+            if debug:
+                print(f'   overlap left/right = {trim_left}, {trim_right}')
 
         elif this_param.lower() == SPACE_PARAM:
             counter += 1
@@ -235,6 +264,7 @@ def parse_params():
         print(f'   offset_pixels = {offset_pixels}')
         print(f'   overlap_pixels = {overlap_pixels}')
         print(f'   overlap_pixels2 = {overlap_pixels2}')
+        print(f'   overlap left/right = {trim_left}, {trim_right}')
         print(f'   space_pixels = {space_pixels}')
         print(f'   force fit = {force_fit}')
 
@@ -654,6 +684,117 @@ def join_files_horizontally(images_list, out_file, overlap, overlap2, offset, sp
 
 
 #########
+#   Joins two files horizontally paying close attention to trim_left and trim_right.
+#
+#   Specifics:
+#       Rather than overlapping, the left file's right side will be trimmed by trim_left
+#       amount.  And the right file's left side will be trimmed by trim_right amount.
+#       Sorry for the confusing terminology.  The left and right of the trim_ variables
+#       refers to the left or right file.
+#
+def join_files_horizontally_left_right(
+    image_list, 
+    out_file, 
+    trim_left, 
+    trim_right, 
+    offset, 
+    space, 
+    force
+):
+    
+    if debug:
+        print(f'joining files horizontally: image_list = {image_list}')
+        print(f'    outfile = {out_file}, trim_left = {trim_left}, trim_right = {trim_right}, offset = {offset}, space = {space}, force = {force}')
+
+    # height to use if we're not forcing
+    first_height = image_list[0].height
+    tallest = first_height
+    shortest = first_height
+
+    # create height adjustment list for each image to join
+    height_adjustment_list = [0] * len(image_list)
+
+    # check for correct height--all files.  And while we're at it
+    # figure out the tallest and shortest heights.
+    for image in image_list:
+        if image.height != first_height:
+            if force == False:
+                print('Images do not have the same height--aborting!!')
+                return False
+
+            if image.height < shortest:
+                shortest = image.height
+            elif image.height > tallest:
+                tallest = image.height
+
+    # see if there are height descrepencies.
+    if shortest != tallest:
+        if force == False:      # todo: shouldn't this never happen?
+            print('Images do not have the same height--aborting!!')
+            return False
+
+        # It's time to Force the issue :)
+        # Make sure the new height is the tallest of the inputs.   
+        # And set the offsets needed to center the less tall pieces.
+        for i in range(len(image_list)):
+            this_height = image_list[i].height
+            height_adjustment_list[i] = int((tallest - this_height) / 2)
+
+            if debug:
+                print(f'image[{i}] with height {this_height} has adjustment of {height_adjustment_list[i]}')
+
+
+    #
+    # Figure out width of output image
+    #   It's simply the width of all the images added together
+    #   minus the trim_left + trim_right (more for multiple images)
+    out_image_width = 0
+    for image in image_list:
+        out_image_width += image.width
+    out_image_width -= (trim_left + trim_right) * (len(image_list) - 1)
+
+    # The amount of space to add is the space * (number of images - 1)
+    out_image_width += space * (len(image_list) - 1)
+    print(f'--> out_image_width = {out_image_width}')
+
+    # new image combines widths
+    out_image = Image.new('RGB', (out_image_width, tallest))
+
+
+    # Time to join up the pieces.  Since we're doing a special (trimming left and right)
+    # we are only joining the first two images.  Any extras are completely ignored. 
+    #
+    # TODO: check for extras and write a warning message to user
+    #
+
+    # Paste the first image in to our new image.  No need to trim as that's done
+    # in the next step.
+    out_image.paste(image_list[0])
+
+    # We need a temp for the second image (to trim the left side of it out).
+    # The width is image_list[1] - trim_right.
+    tmp_image_width = image_list[1].width - trim_right
+    tmp_image = Image.new('RGB', (tmp_image_width, tallest))
+    tmp_image.paste(image_list[1], (0 - trim_right, 0))
+    tmp_image.save('test.jpg')      # <-- this is blank!
+
+    # Finally paste this tmp_image into our out_image.  The x for this is the
+    # width of image[0] - trim_left.
+    left_image_trimmed_width = image_list[0].width - trim_left
+    print(f'--> left_image_trimmed_width = {left_image_trimmed_width}')
+    out_image.paste(tmp_image, (left_image_trimmed_width, 0))
+    print(f'--> out_image.width = {out_image.width}')
+
+    # save and clean up
+    tmp_image.close()
+    out_image.save(out_file)
+    out_image.close()
+
+    return True
+
+
+
+#########
 #   Joins two files into one.  The output will have the top file immediately
 #   above the bottom file.  If the files are different widths, then this
 #   does nothing.
@@ -718,10 +859,18 @@ def join_files(infile_list, out_file, offset, space, force = False):
     # Now we have our list of Images to join, finally!  Let's do it.
     return_val = False
 
-    if join_horizonatally:
-        return_val = join_files_horizontally(in_image_list, out_file, overlap_pixels, overlap_pixels2, offset, space, force)
+    # check to see if we're doing the left-right overlap joining--operating by side effect!!!
+    if (trim_left != 0) or (trim_right != 0):
+        if join_horizonatally:
+            return_val = join_files_horizontally_left_right(in_image_list, out_file, trim_left, trim_right, offset, space, force)
+        else:
+            return_val = join_files_vertically_top_bottom(in_image_list, out_file, trim_left, trim_right, offset, space, force)
+
     else:
-        return_val = join_files_vertically(in_image_list, out_file, overlap_pixels, overlap_pixels2, offset, space, force)
+        if join_horizonatally:
+            return_val = join_files_horizontally(in_image_list, out_file, overlap_pixels, overlap_pixels2, offset, space, force)
+        else:
+            return_val = join_files_vertically(in_image_list, out_file, overlap_pixels, overlap_pixels2, offset, space, force)
 
     for image in in_image_list:
         image.close()
