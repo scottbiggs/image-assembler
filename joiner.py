@@ -4,7 +4,7 @@
 import os
 import math
 import sys      # for command line arguments
-from PIL import Image
+from PIL import Image, ImageDraw
 from PIL import ImageOps
 
 
@@ -474,7 +474,62 @@ def get_unique_name(seed):
     return current_name
 
 
-#########
+########
+#   Inserts horizontal space into an image.
+#
+#   Given an image, an x coordinate to start, a width, and a color (defaults to black),
+#   this inserts a vertical bar of space into the image, shifting the right side to 
+#   the right by width amount.  In other words, the image is split at x and the right
+#   side is moved to the right by width amount.  The space created is filled with color.
+#
+#   params
+#       image               The image to modifiy.  Should already be wide enough to
+#                           hold the shift.  Anything within the width pixels on the
+#                           right side will be lost (shifted out of the image).
+#
+#       split_point         The coordinate to split the image.  This will be the 
+#                           beginning of the right side (this point will be shifted).
+#
+#       amount              The number of pixels to shift right.
+#
+#       color               Color to fill.  Defaults to black.
+#
+def split_image(image, split_point, amount, color = (0, 0, 0)):
+
+    # Find the right side by using crop(left, upper, right, lower).
+    # Note that the rightmost part of the orig image will be thrown away here.
+    right_image = image.crop((split_point, 0, image.width - 1, image.height - 1 - amount))
+
+    # get a draw object for the original image
+    draw = ImageDraw.Draw(image)
+
+    # Paste in a rectangle of color starting at split_point.
+    # Params for draw are:  (box-to-draw, fill-color, outline)
+    draw.rectangle((split_point, 0, split_point + amount, image.height), color, (0, 0, 0))
+
+    # should be done--this should change image
+
+
+########
+#   Like split_image, except that this returns a newly created image instead of
+#   modifying the given image.
+#
+def split_image_new(orig_image, split_point, amount, color = (0, 0, 0)):
+    """Create a new split image from a given image.
+
+    Similar to split_image().
+
+    returns:
+        a new Image that is splt as described
+    """
+
+    new_image = Image.new('RGB', (orig_image.width + amount, orig_image.height))
+    new_image.paste(orig_image)
+    split_image(new_image, split_point, amount, color)
+    return new_image
+
+
+########
 #   Joins two files vertically.
 #
 #   params
@@ -785,10 +840,21 @@ def join_files_horizontally_left_right(
     out_image.paste(tmp_image, (left_image_trimmed_width, 0))
     print(f'--> out_image.width = {out_image.width}')
 
-    # save and clean up
-    tmp_image.close()
-    out_image.save(out_file)
-    out_image.close()
+    # Do we want to add any space?
+    if space > 0:
+        spaced_image = split_image_new(out_image, left_image_trimmed_width + 1, space)
+
+        # save and clean up
+        spaced_image.save(out_file)
+        spaced_image.close
+        tmp_image.close()
+        out_image.close()
+
+    else:
+        # save and clean up
+        tmp_image.close()
+        out_image.save(out_file)
+        out_image.close()
 
     return True
 
